@@ -1,4 +1,5 @@
 pack/
 __pycache__/
 target/
+output/
 .venv/

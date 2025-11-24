@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 
-def write_geyser_mappings(entries: Iterable[Mapping[str, Any]], output_path: Path) -> None:
+def write_geyser_item_mappings(entries: Iterable[Mapping[str, Any]], output_path: Path) -> None:
     """
     Emit geyser_mappings.json compatible with Geyser's custom item definitions.
 
@@ -60,3 +60,4 @@ def write_geyser_mappings(entries: Iterable[Mapping[str, Any]], output_path: Pat
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(geyser_json, indent=2), encoding="utf-8")
+

@@ -8,6 +8,8 @@ import zipfile
 from pathlib import Path
 from typing import Optional
 
+_ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
+
 
 def zip_directory(source_dir: Path, destination_zip: Path) -> None:
     """
@@ -22,8 +24,25 @@ def zip_directory(source_dir: Path, destination_zip: Path) -> None:
     """
     with zipfile.ZipFile(destination_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for file_path in sorted(source_dir.rglob("*")):
-            if file_path.is_file():
-                archive.write(file_path, file_path.relative_to(source_dir))
+            if not file_path.is_file():
+                continue
+
+            arcname = file_path.relative_to(source_dir).as_posix()
+            try:
+                zinfo = zipfile.ZipInfo.from_file(file_path, arcname)
+            except ValueError as exc:  # legacy timestamps trigger this
+                if "timestamps before 1980" not in str(exc):
+                    raise
+                stat_res = file_path.stat()
+                zinfo = zipfile.ZipInfo(arcname, _ZIP_EPOCH)
+                zinfo.external_attr = (stat_res.st_mode & 0xFFFF) << 16
+                zinfo.file_size = stat_res.st_size
+            else:
+                if zinfo.date_time < _ZIP_EPOCH:
+                    zinfo.date_time = _ZIP_EPOCH
+
+            with file_path.open("rb") as src:
+                archive.writestr(zinfo, src.read())
 
 
 def slugify(value: str) -> str:

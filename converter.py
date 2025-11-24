@@ -7,6 +7,7 @@ to Bedrock Edition format with Geyser custom model support.
 
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import shutil
 import tempfile
@@ -24,7 +25,8 @@ from handlers import (
     write_language_files,
     write_texture_manifest,
 )
-from models import write_geyser_mappings
+from models import write_geyser_item_mappings
+from blocks import write_geyser_block_mappings
 from services import build_pack_manifests, ensure_placeholder_texture
 from services.texture_utils import split_namespace
 from utils import hash_model_identifier, slugify, status_message, zip_directory
@@ -95,6 +97,7 @@ def convert_resource_pack(
             raise RuntimeError("Unable to locate pack.mcmeta in the provided archive")
 
         item_dir = pack_root / "assets" / "minecraft" / "models" / "item"
+        block_dir = pack_root / "assets" / "minecraft" / "blockstates"
         if not item_dir.exists():
             raise RuntimeError("No assets/minecraft/models/item directory found in pack")
 
@@ -112,11 +115,16 @@ def convert_resource_pack(
         ensure_placeholder_texture(textures_root / "0.png")
 
         # Process model overrides
-        converted_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
+        converted_item_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
             item_dir, pack_root, rp_root, bp_root, textures_root, materials
         )
 
-        if not converted_entries:
+        converted_block_entries, item_texture_data, terrain_texture_data  = process_block_overrides(
+            block_dir, pack_root, rp_root, bp_root, textures_root, materials, item_texture_data, terrain_texture_data
+        )
+
+
+        if not converted_item_entries:
             raise RuntimeError("No convertible custom_model_data overrides were found")
 
     # Write texture manifests
@@ -135,8 +143,10 @@ def convert_resource_pack(
     write_language_files(rp_root / "texts", lang_entries)
 
     # Write Geyser mappings
-    mappings_path = output_root / "geyser_mappings.json"
-    write_geyser_mappings(converted_entries, mappings_path)
+    mappings_path = output_root / "item_geyser_mappings.json"
+    write_geyser_item_mappings(converted_item_entries, mappings_path)
+    mappings_path = output_root / "block_geyser_mappings.json"
+    write_geyser_block_mappings(converted_block_entries, mappings_path)
 
     # Package outputs
     resource_zip = output_root / f"{slugify(pack_description)}_resources.mcpack"
@@ -182,6 +192,51 @@ def copy_pack_icon(pack_root: Path, rp_root: Path, bp_root: Path) -> None:
         shutil.copy2(pack_root / "pack.png", rp_root / "pack_icon.png")
         shutil.copy2(pack_root / "pack.png", bp_root / "pack_icon.png")
 
+def process_block_overrides(
+    block_dir: Path,
+    pack_root: Path,
+    rp_root: Path,
+    bp_root: Path,
+    textures_root: Path,
+    materials: dict[str, str],
+    item_texture_data: dict[str, dict[str, str]],
+    terrain_texture_data: dict[str, dict[str, str]]
+) -> tuple[dict[str, list[str]], dict[str, dict[str, str]], dict[str, dict[str, str]]]:
+    """
+    Process all model override files and convert them to Bedrock format.
+
+    Args:
+        block_dir: Directory containing Java block model variations
+        pack_root: Root directory of the extracted Java pack.
+        rp_root: Resource pack root directory.
+        bp_root: Behavior pack root directory.
+        textures_root: Directory for texture output.
+        materials: Material configuration dictionary.
+
+    Returns:
+        Tuple of (converted_entries, item_texture_data, terrain_texture_data, lang_entries).
+    """
+    converted_entries: dict[str, list[str]] = defaultdict(list)
+    status_message("process", "Walking block override files")
+    counter = 0
+    for block_file in sorted(block_dir.rglob("*.json")):
+        converted_file: list[str] = []
+        try:
+            block_data = json.loads(block_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            status_message("error", f"Skipping invalid JSON {block_file}: {exc}")
+            continue
+        for variant, model_ref in block_data.get("variants", {}).items():
+            target_model = model_ref.get("model")
+            if not target_model:
+                continue
+            process_single_block_override(model_ref)
+            converted_file.append(variant)
+            counter += 1
+
+        converted_entries[block_file.stem] = converted_file
+
+    return converted_entries, item_texture_data, terrain_texture_data
 
 def process_model_overrides(
     item_dir: Path,
@@ -232,7 +287,7 @@ def process_model_overrides(
                 continue
 
             # Process single override
-            entry = process_single_override(
+            entry = process_single_item_override(
                 item_id, cmd, index, target_model, pack_root, 
                 rp_root, bp_root, textures_root, materials
             )
@@ -259,7 +314,7 @@ def process_model_overrides(
     return converted_entries, item_texture_data, terrain_texture_data, lang_entries
 
 
-def process_single_override(
+def process_single_item_override(
     item_id: str,
     cmd: int,
     index: int,
@@ -327,3 +382,99 @@ def process_single_override(
         return None
 
     return entry
+
+def process_single_block_override(
+    model_ref: dict[str, Any],
+) -> None:
+    """
+    Process a single block model override entry.
+
+    Args:
+        model_ref: Model reference dictionary.
+
+    Returns:
+        None.
+
+    Notes:
+        This implementation will attempt to locate the referenced model JSON and
+        its primary texture in the current workspace (extracted pack). If found,
+        the texture is copied to target/rp/textures/custom/blocks/<counter>.png.
+        A simple per-function counter is used to name files sequentially.
+    """
+    target_model = model_ref.get("model") if isinstance(model_ref, dict) else None
+    if not target_model:
+        return
+
+    # Try to locate the model JSON in the extracted pack (workspace)
+    namespace, relative_model = split_namespace(target_model, default_namespace="minecraft")
+    cwd = Path.cwd()
+    model_glob = f"assets/{namespace}/models/{relative_model}.json"
+    model_json = None
+    for p in cwd.rglob(model_glob):
+        model_json = p
+        break
+    if model_json is None:
+        # fallback: search by filename
+        for p in cwd.rglob(f"{relative_model}.json"):
+            model_json = p
+            break
+    if model_json is None:
+        status_message("error", f"Block model JSON not found for {target_model}")
+        return
+
+    try:
+        model_data = json.loads(model_json.read_text(encoding="utf-8"))
+    except Exception as exc:
+        status_message("error", f"Failed to read model JSON {model_json}: {exc}")
+        return
+
+    # Pick a texture reference from the model's "textures" mapping (first non-# entry)
+    textures_map = model_data.get("textures", {}) or {}
+    texture_ref = None
+    for v in textures_map.values():
+        if isinstance(v, str) and not v.startswith("#"):
+            texture_ref = v
+            break
+    if texture_ref is None:
+        # fallback to using the model name itself as a texture key (best-effort)
+        texture_ref = relative_model
+
+    tex_ns, tex_rel = split_namespace(texture_ref, default_namespace=namespace)
+    tex_path = cwd / "assets" / tex_ns / "textures" / f"{tex_rel}.png"
+
+    if not tex_path.exists():
+        # try globbing for the texture if the direct path doesn't exist
+        texture_glob = f"assets/{tex_ns}/textures/{tex_rel}.png"
+        found_tex = None
+        for p in cwd.rglob(texture_glob):
+            found_tex = p
+            break
+        if found_tex is None:
+            # last-resort: search for any png that ends with the last path segment
+            last_name = tex_rel.split("/")[-1]
+            for p in cwd.rglob(f"assets/*/textures/**/{last_name}.png"):
+                found_tex = p
+                break
+        if found_tex is None:
+            status_message("error", f"Texture for {target_model} not found")
+            return
+        tex_path = found_tex
+
+    # Destination inside the resource pack produced by convert_resource_pack
+    rp_root = cwd / "target" / "rp"
+    dest_dir = rp_root / "textures" / "custom" / "blocks"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # Keep a simple persistent counter on the function to name files sequentially
+    counter = getattr(process_single_block_override, "_counter", 0)
+    dest_file = dest_dir / f"{counter}.png"
+    try:
+        shutil.copy2(tex_path, dest_file)
+    except Exception as exc:
+        status_message("error", f"Failed to copy texture {tex_path} -> {dest_file}: {exc}")
+        return
+
+    process_single_block_override._counter = counter + 1
+
+if __name__ == "__main__":
+    convert_resource_pack("pack.zip")

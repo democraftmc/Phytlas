@@ -2,11 +2,35 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any, MutableMapping, Optional, Set
 
 from services.texture_utils import resolve_texture_files, split_namespace
+
+_GENERATED_PARENT_KEYS = {
+    "builtin/generated",
+    "item/generated",
+    "item/handheld",
+    "item/handheld_rod",
+}
+
+_CUBE_PARENT_KEYS = {
+    "block/cube_all",
+}
+
+_DEFAULT_CUBE_ALL = [
+    {
+        "name": "cube",
+        "from": [0, 0, 0],
+        "to": [16, 16, 16],
+        "faces": {
+            face: {"texture": "#all"}
+            for face in ("north", "south", "east", "west", "up", "down")
+        },
+    }
+]
 
 
 def resolve_parental(
@@ -66,14 +90,25 @@ def resolve_parental(
             resolved_display = model["display"]
 
         parent = model.get("parent")
-        if (resolved_elements is not None) or parent is None:
-            generated_model = parent in {"builtin/generated", "minecraft:builtin/generated"}
+        if parent is None:
+            break
+
+        normalized_parent = _normalize_parent_name(parent)
+        if normalized_parent in _GENERATED_PARENT_KEYS:
+            generated_model = True
+            break
+
+        if resolved_elements is not None:
+            break
+
+        if normalized_parent in _CUBE_PARENT_KEYS:
+            resolved_elements = copy.deepcopy(_DEFAULT_CUBE_ALL)
             break
 
         parent_path = parent_to_model_path(parent, assets_root)
         if not parent_path.exists():
             raise FileNotFoundError(f"Missing parent model {parent} for {model_path}")
-        
+
         current = parent_path
 
     if resolved_elements is None and not generated_model:
@@ -104,3 +139,9 @@ def parent_to_model_path(parent: str, assets_root: Path) -> Path:
     """
     namespace, path = split_namespace(parent, default_namespace="minecraft")
     return assets_root / "assets" / namespace / "models" / f"{path}.json"
+
+
+def _normalize_parent_name(parent: str) -> str:
+    """Strip namespace prefixes so builtin detection stays consistent."""
+
+    return parent.split(":", 1)[1] if ":" in parent else parent
