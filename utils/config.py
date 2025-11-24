@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import os
-from typing import Dict
 
 from .logging import status_message
 
 # Global configuration cache
-_CONFIG_CACHE: Dict[str, str] = {}
+_CONFIG_CACHE: dict[str, str] = {}
 
 
 def prompt_config_value(key: str, prompt: str, default: str, description: str) -> str:

@@ -8,6 +8,7 @@ from .file_ops import (
     slugify,
     ensure_directory,
     copy_file_safe,
+    consolidate_files,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "slugify",
     "ensure_directory",
     "copy_file_safe",
+    "consolidate_files",
 ]
