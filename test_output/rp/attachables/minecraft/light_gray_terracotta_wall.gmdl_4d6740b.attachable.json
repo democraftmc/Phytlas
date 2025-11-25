@@ -1,0 +1,23 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:attachable": {
+    "description": {
+      "identifier": "geyser_custom:gmdl_4d6740b",
+      "materials": {
+        "default": "entity_alphatest_one_sided"
+      },
+      "textures": {
+        "default": "textures/gmdl_4d6740b.png"
+      },
+      "geometry": {
+        "default": "geometry.geyser_custom.geo_f62efd2"
+      },
+      "scripts": {
+        "animate": []
+      },
+      "render_controllers": [
+        "controller.render.item_default"
+      ]
+    }
+  }
+}

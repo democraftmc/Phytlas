@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "header": {
+    "description": "Adds 3D items for use with a Geyser proxy",
+    "name": "ItemsAdder",
+    "uuid": "fca22dca-c744-4788-bd70-7b8025838024",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      18,
+      3
+    ]
+  },
+  "modules": [
+    {
+      "description": "Adds 3D items for use with a Geyser proxy",
+      "type": "data",
+      "uuid": "c5ed3447-3dc0-4213-87f4-55184086d25f",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "f569b9dc-ab09-480b-8930-2dc9c319a9f3",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

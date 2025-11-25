@@ -1,0 +1,14 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:item": {
+    "description": {
+      "identifier": "geyser_custom:gmdl_d2e6bd3",
+      "category": "items"
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "gmdl_d2e6bd3"
+      }
+    }
+  }
+}

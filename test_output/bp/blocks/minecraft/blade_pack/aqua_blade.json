@@ -1,0 +1,19 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:block": {
+    "description": {
+      "identifier": "geyser_custom:gmdl_efdf88e"
+    },
+    "components": {
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "gmdl_atlas_gmdl_efdf88e",
+          "render_method": "alpha_test",
+          "face_dimming": false,
+          "ambient_occlusion": false
+        }
+      },
+      "minecraft:geometry": "geometry.geyser_custom.geo_79c67fa"
+    }
+  }
+}

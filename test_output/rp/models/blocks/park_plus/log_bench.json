@@ -1,0 +1,116 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.geyser_custom.geo_4beae78",
+        "texture_width": 64,
+        "texture_height": 128,
+        "visible_bounds_width": 4,
+        "visible_bounds_height": 4.5,
+        "visible_bounds_offset": [
+          0,
+          0.75,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "geyser_custom",
+          "binding": "q.item_slot_to_bone_name(c.item_slot)",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -12.0,
+                0.0,
+                1.0
+              ],
+              "size": [
+                9.0,
+                9.0,
+                16.0
+              ],
+              "pivot": [
+                5.4,
+                -4.0,
+                14.0
+              ],
+              "rotation": [
+                0,
+                -45.0,
+                0
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0.0,
+                    82.0
+                  ],
+                  "uv_size": [
+                    9.0,
+                    9.0
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    0.0,
+                    64.0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    9.0
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    25.0,
+                    64.0
+                  ],
+                  "uv_size": [
+                    9.0,
+                    9.0
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    0.0,
+                    73.0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    9.0
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    25.0,
+                    80.0
+                  ],
+                  "uv_size": [
+                    -9.0,
+                    -16.0
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    25.0,
+                    80.0
+                  ],
+                  "uv_size": [
+                    -9.0,
+                    -16.0
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
