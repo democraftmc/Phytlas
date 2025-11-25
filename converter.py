@@ -122,7 +122,7 @@ def convert_resource_pack(
         )
 
         converted_block_entries, item_texture_data, terrain_texture_data  = process_block_overrides(
-            block_dir, pack_root, rp_root, bp_root, textures_root, materials, item_texture_data, terrain_texture_data
+            block_dir, pack_root, rp_root, bp_root, blocks_root, materials, item_texture_data, terrain_texture_data
         )
 
 
@@ -199,7 +199,7 @@ def process_block_overrides(
     pack_root: Path,
     rp_root: Path,
     bp_root: Path,
-    textures_root: Path,
+    blocks_root: Path,
     materials: dict[str, str],
     item_texture_data: dict[str, dict[str, str]],
     terrain_texture_data: dict[str, dict[str, str]]
@@ -233,7 +233,7 @@ def process_block_overrides(
             if not target_model:
                 continue
             process_single_block_override(model_ref)
-            item_texture_data[f"block_counter"] = { "texture": blocks_root + str(counter) + ".png" }
+            item_texture_data[f"block_counter"] = { "texture": blocks_root /  (str(counter) + ".png") }
             converted_file.append(variant)
             counter += 1
 
