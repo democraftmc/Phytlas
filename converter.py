@@ -10,13 +10,12 @@ from __future__ import annotations
 from collections import defaultdict
 import json
 import shutil
-import tempfile
 import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
-from converters import convert_model, resolve_parental
+from converters import convert_model, resolve_parental, build_geometry
 from handlers import (
     format_display_name,
     locate_pack_root,
@@ -28,6 +27,7 @@ from handlers import (
 from models import write_geyser_item_mappings
 from blocks import write_geyser_block_mappings
 from services import build_pack_manifests, ensure_placeholder_texture
+from services.texture_atlas import generate_atlas
 from services.texture_utils import split_namespace
 from utils import hash_model_identifier, slugify, status_message, zip_directory
 
@@ -78,7 +78,8 @@ def convert_resource_pack(
         root.mkdir(parents=True, exist_ok=True)
 
     textures_root = rp_root / "textures"
-    blocks_root   = textures_root / "custom" / "block"
+    custom_blocks_location = "custom/block"
+    blocks_root   = textures_root / custom_blocks_location
     textures_root.mkdir(parents=True, exist_ok=True)
     blocks_root.mkdir(parents=True, exist_ok=True)
 
@@ -123,8 +124,8 @@ def convert_resource_pack(
         item_dir, pack_root, rp_root, bp_root, textures_root, materials
     )
 
-    converted_block_entries, item_texture_data, terrain_texture_data  = process_block_overrides(
-        block_dir, pack_root, rp_root, bp_root, blocks_root, materials, item_texture_data, terrain_texture_data
+    converted_block_entries, terrain_texture_data  = process_block_overrides(
+        block_dir, pack_root, rp_root, bp_root, blocks_root, custom_blocks_location, terrain_texture_data
     )
 
 
@@ -202,10 +203,9 @@ def process_block_overrides(
     rp_root: Path,
     bp_root: Path,
     blocks_root: Path,
-    materials: dict[str, str],
-    item_texture_data: dict[str, dict[str, str]],
-    terrain_texture_data: dict[str, dict[str, str]]
-) -> tuple[dict[str, list[str]], dict[str, dict[str, str]], dict[str, dict[str, str]]]:
+    custom_blocks_location: str,
+    terrain_texture_data: dict[str, dict[str, str]],
+) -> tuple[dict[str, list[dict[str, str]]], dict[str, dict[str, str]]]:
     """
     Process all model override files and convert them to Bedrock format.
 
@@ -220,29 +220,133 @@ def process_block_overrides(
     Returns:
         Tuple of (converted_entries, item_texture_data, terrain_texture_data, lang_entries).
     """
-    converted_entries: dict[str, list[str]] = defaultdict(list)
+    converted_entries: dict[str, list[dict[str, str]]] = defaultdict(list)
     status_message("process", "Walking block override files")
     counter = 0
+
+    # Create a shared cube geometry + atlas for fallbacks (Option A)
+    try:
+        placeholder_tex = rp_root / "textures" / "0.png"
+        # ensure blocks_root exists for atlas output
+        blocks_root.mkdir(parents=True, exist_ok=True)
+        cube_atlas_key, cube_frames, cube_atlas_path, cube_atlas_size = generate_atlas(
+            {"all": placeholder_tex}, blocks_root, "cube"
+        )
+        cube_geometry_id = "cube"
+        cube_geometry_identifier = f"geometry.geyser_custom.{cube_geometry_id}"
+        cube_elements = [
+            {
+                "name": "cube",
+                "from": [0, 0, 0],
+                "to": [16, 16, 16],
+                "faces": {
+                    face: {"texture": "#all"}
+                    for face in ("north", "south", "east", "west", "up", "down")
+                },
+            }
+        ]
+        rp_cube_models_dir = rp_root / "models" / "blocks" / "geyser_custom"
+        rp_cube_models_dir.mkdir(parents=True, exist_ok=True)
+        cube_geometry = build_geometry(cube_elements, cube_frames, cube_atlas_size, cube_geometry_identifier)
+        (rp_cube_models_dir / "cube.json").write_text(json.dumps(cube_geometry, indent=2), encoding="utf-8")
+        # Register cube atlas in terrain texture manifest data
+        terrain_texture_data[cube_atlas_key] = {"textures": f"textures/{custom_blocks_location}/{cube_atlas_path.name}"}
+    except Exception as exc:
+        status_message("info", f"Failed to create shared cube geometry/atlas: {exc}")
     for block_file in sorted(block_dir.rglob("*.json")):
-        converted_file: list[str] = []
         try:
             block_data = json.loads(block_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             status_message("error", f"Skipping invalid JSON {block_file}: {exc}")
             continue
+
         for variant, model_ref in block_data.get("variants", {}).items():
-            target_model = model_ref.get("model")
+            target_model = model_ref.get("model") if isinstance(model_ref, dict) else None
             if not target_model:
                 continue
-            # pass pack_root so the block processing reads from the extracted pack folder
-            process_single_block_override(model_ref, blocks_root, pack_root)
-            item_texture_data[f"block_counter"] = { "texture": str(blocks_root /  (str(counter) + ".png")) }
-            converted_file.append(variant)
+
+            # Locate the referenced model JSON in the extracted pack
+            namespace, relative_model = split_namespace(target_model, default_namespace="minecraft")
+            model_glob = f"assets/{namespace}/models/{relative_model}.json"
+            model_json = None
+            for p in pack_root.rglob(model_glob):
+                model_json = p
+                break
+            if model_json is None:
+                for p in pack_root.rglob(f"{relative_model}.json"):
+                    model_json = p
+                    break
+            if model_json is None:
+                status_message("error", f"Block model JSON not found for {target_model}. Target: {model_ref}")
+                continue
+
+            try:
+                resolved = resolve_parental(model_json, assets_root=pack_root)
+            except Exception as exc:
+                status_message("error", f"Failed to resolve {model_json}: {exc}")
+                continue
+
+            # If the model is generated (sprite) or has no elements, fallback to a cube
+            elements = resolved.get("elements")
+            if resolved.get("generated") or not elements:
+                elements = [
+                    {
+                        "name": "cube",
+                        "from": [0, 0, 0],
+                        "to": [16, 16, 16],
+                        "faces": {
+                            face: {"texture": "#all"}
+                            for face in ("north", "south", "east", "west", "up", "down")
+                        },
+                    }
+                ]
+
+            # Build unique ids/hashes for atlas and geometry
+            predicate_key = f"{block_file.stem}_{variant}_{counter}"
+            entry_hash, geo_hash = hash_model_identifier(predicate_key, str(model_json))
+            path_hash = f"gmdl_{entry_hash}"
+            geometry_id = f"geo_{geo_hash}"
+            geometry_identifier = f"geometry.geyser_custom.{geometry_id}"
+
+            # Generate an atlas for this block's textures
+            try:
+                atlas_key, frames, atlas_path, atlas_size = generate_atlas(resolved["texture_paths"], blocks_root, path_hash)
+            except Exception as exc:
+                status_message("error", f"Atlas generation failed for {target_model}: {exc}")
+                continue
+
+            # Build Bedrock geometry and write it into the resource pack
+            try:
+                geometry = build_geometry(elements, frames, atlas_size, geometry_identifier)
+            except Exception as exc:
+                status_message("error", f"Geometry build failed for {target_model}: {exc}")
+                continue
+
+            model_parts = relative_model.split("/")
+            model_name = model_parts[-1]
+            model_path = "/".join(model_parts[:-1])
+            rp_models_dir = rp_root / "models" / "blocks" / namespace / model_path
+            rp_models_dir.mkdir(parents=True, exist_ok=True)
+            geometry_file = rp_models_dir / f"{model_name}.{geometry_id}.json"
+            try:
+                geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
+            except Exception as exc:
+                status_message("error", f"Failed to write geometry {geometry_file}: {exc}")
+                continue
+
+            # Register texture in terrain texture manifest (paths relative to rp textures dir)
+            terrain_texture_data[atlas_key] = {"textures": f"textures/{custom_blocks_location}/{atlas_path.name}"}
+
+            # Append converted variant entry
+            converted_entries[block_file.stem].append({
+                "variant": variant,
+                "geometry": geometry_identifier,
+                "texture": atlas_key,
+            })
+
             counter += 1
 
-        converted_entries[block_file.stem] = converted_file
-
-    return converted_entries, item_texture_data, terrain_texture_data
+    return converted_entries, terrain_texture_data
 
 def process_model_overrides(
     item_dir: Path,
@@ -389,95 +493,9 @@ def process_single_item_override(
 
     return entry
 
-def process_single_block_override(
-    model_ref: dict[str, Any],
-    blocks_root: Path,
-    pack_root: Path,
-) -> None:
-    """
-    Process a single block model override entry.
-
-    Args:
-        model_ref: Model reference dictionary.
-
-    Returns:
-        None.
-
-    Notes:
-        This implementation will attempt to locate the referenced model JSON and
-        its primary texture in the current workspace (extracted pack). If found,
-        the texture is copied to target/rp/textures/custom/blocks/<counter>.png.
-        A simple per-function counter is used to name files sequentially.
-    """
-    target_model = model_ref.get("model") if isinstance(model_ref, dict) else None
-    if not target_model:
-        return
-
-    # Try to locate the model JSON in the extracted pack (workspace)
-    namespace, relative_model = split_namespace(target_model, default_namespace="minecraft")
-    #    cwd = Path.cwd()
-    model_glob = f"assets/{namespace}/models/{relative_model}.json"
-    model_json = None
-    for p in pack_root.rglob(model_glob):
-        model_json = p
-        break
-    if model_json is None:
-        # fallback: search by filename
-        for p in pack_root.rglob(f"{relative_model}.json"):
-            model_json = p
-            break
-    if model_json is None:
-        status_message("error", f"Block model JSON not found for {target_model}")
-        return
-
-    try:
-        model_data = json.loads(model_json.read_text(encoding="utf-8"))
-    except Exception as exc:
-        status_message("error", f"Failed to read model JSON {model_json}: {exc}")
-        return
-
-    # Pick a texture reference from the model's "textures" mapping (first non-# entry)
-    textures_map = model_data.get("textures", {}) or {}
-    texture_ref = None
-    for v in textures_map.values():
-        if isinstance(v, str) and not v.startswith("#"):
-            texture_ref = v
-            break
-    if texture_ref is None:
-        # fallback to using the model name itself as a texture key (best-effort)
-        texture_ref = relative_model
-
-    tex_ns, tex_rel = split_namespace(texture_ref, default_namespace=namespace)
-    tex_path = pack_root / "assets" / tex_ns / "textures" / f"{tex_rel}.png"
-
-    if not tex_path.exists():
-        # try globbing for the texture if the direct path doesn't exist
-        texture_glob = f"assets/{tex_ns}/textures/{tex_rel}.png"
-        found_tex = None
-        for p in pack_root.rglob(texture_glob):
-            found_tex = p
-            break
-        if found_tex is None:
-            # last-resort: search for any png that ends with the last path segment
-            last_name = tex_rel.split("/")[-1]
-            for p in pack_root.rglob(f"assets/*/textures/**/{last_name}.png"):
-                found_tex = p
-                break
-        if found_tex is None:
-            status_message("error", f"Texture for {target_model} not found")
-            return
-        tex_path = found_tex
-
-    # Keep a simple persistent counter on the function to name files sequentially
-    counter = getattr(process_single_block_override, "_counter", 0)
-    dest_file = blocks_root / f"{counter}.png"
-    try:
-        shutil.copy2(tex_path, dest_file)
-    except Exception as exc:
-        status_message("error", f"Failed to copy texture {tex_path} -> {dest_file}: {exc}")
-        return
-
-    process_single_block_override._counter = counter + 1
+# Note: block processing is now handled by `process_block_overrides` which
+# generates per-block atlases and geometries. The older helper that copied
+# texture files into the rp textures folder has been removed as it's unused.
 
 if __name__ == "__main__":
     convert_resource_pack("pack.zip")

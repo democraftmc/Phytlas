@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping
 
 
 
-def write_geyser_block_mappings(entries: dict[str, list[str]], output_path: Path) -> None:
+def write_geyser_block_mappings(entries: dict[str, list[dict[str, str]]], output_path: Path) -> None:
     """
     Emit geyser_mappings.json compatible with Geyser's custom item definitions.
 
@@ -22,15 +22,20 @@ def write_geyser_block_mappings(entries: dict[str, list[str]], output_path: Path
         None. Writes the mappings file to disk.
     """
     mappings: dict[str, dict[str, Any]] = defaultdict(dict)
-    for block_type in entries:
+    for block_type, variant_list in entries.items():
         variants: dict[str, Any] = {}
-        for block_variant_index in range(len(entries[block_type])):
-            variants[entries[block_type][block_variant_index]] = {
+        for block_variant_index, entry in enumerate(variant_list):
+            variant_key = entry.get("variant")
+            if not variant_key:
+                continue
+            geometry = entry.get("geometry", "cube_all")
+            texture_key = entry.get("texture", f"block_{block_variant_index}")
+            variants[variant_key] = {
                 "name": f"block_{block_variant_index}",
-                "geometry": "cube_all",
+                "geometry": geometry,
                 "material_instances": {
                     "*": {
-                        "texture": f"block_{block_variant_index}",
+                        "texture": texture_key,
                         "render_method": "alpha_test"
                     }
                 }
