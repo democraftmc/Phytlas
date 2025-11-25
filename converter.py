@@ -232,8 +232,8 @@ def process_block_overrides(
             target_model = model_ref.get("model")
             if not target_model:
                 continue
-            process_single_block_override(model_ref)
-            item_texture_data[f"block_counter"] = { "texture": blocks_root /  (str(counter) + ".png") }
+            process_single_block_override(model_ref, blocks_root)
+            item_texture_data[f"block_counter"] = { "texture": str(blocks_root /  (str(counter) + ".png")) }
             converted_file.append(variant)
             counter += 1
 
@@ -388,6 +388,7 @@ def process_single_item_override(
 
 def process_single_block_override(
     model_ref: dict[str, Any],
+    blocks_root: Path,
 ) -> None:
     """
     Process a single block model override entry.
