@@ -89,45 +89,47 @@ def convert_resource_pack(
 
     # Extract and process pack
     status_message("process", f"Extracting {input_zip.name}")
-    with tempfile.TemporaryDirectory(prefix="pack_extract_") as temp_dir:
-        extract_root = Path(temp_dir)
-        with zipfile.ZipFile(input_zip, "r") as archive:
-            archive.extractall(extract_root)
+    # Extract into ./pack so humans can inspect the extracted files
+    extract_root = Path.cwd() / "pack"
+    shutil.rmtree(extract_root, ignore_errors=True)
+    extract_root.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(input_zip, "r") as archive:
+        archive.extractall(extract_root)
 
-        pack_root = locate_pack_root(extract_root)
-        if pack_root is None:
-            raise RuntimeError("Unable to locate pack.mcmeta in the provided archive")
+    pack_root = locate_pack_root(extract_root)
+    if pack_root is None:
+        raise RuntimeError("Unable to locate pack.mcmeta in the provided archive")
 
-        item_dir = pack_root / "assets" / "minecraft" / "models" / "item"
-        block_dir = pack_root / "assets" / "minecraft" / "blockstates"
-        if not item_dir.exists():
-            raise RuntimeError("No assets/minecraft/models/item directory found in pack")
+    item_dir = pack_root / "assets" / "minecraft" / "models" / "item"
+    block_dir = pack_root / "assets" / "minecraft" / "blockstates"
+    if not item_dir.exists():
+        raise RuntimeError("No assets/minecraft/models/item directory found in pack")
 
-        pack_description = read_pack_description(pack_root / "pack.mcmeta")
+    pack_description = read_pack_description(pack_root / "pack.mcmeta")
 
-        # Build pack metadata and manifests
-        meta = build_pack_metadata(pack_description)
-        build_pack_manifests(meta, rp_root, bp_root)
+    # Build pack metadata and manifests
+    meta = build_pack_metadata(pack_description)
+    build_pack_manifests(meta, rp_root, bp_root)
 
-        # Copy pack icon if present
-        copy_pack_icon(pack_root, rp_root, bp_root)
+    # Copy pack icon if present
+    copy_pack_icon(pack_root, rp_root, bp_root)
 
-        # Setup animations and placeholder texture
-        write_disable_animation(rp_root / "animations")
-        ensure_placeholder_texture(textures_root / "0.png")
+    # Setup animations and placeholder texture
+    write_disable_animation(rp_root / "animations")
+    ensure_placeholder_texture(textures_root / "0.png")
 
-        # Process model overrides
-        converted_item_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
-            item_dir, pack_root, rp_root, bp_root, textures_root, materials
-        )
+    # Process model overrides
+    converted_item_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
+        item_dir, pack_root, rp_root, bp_root, textures_root, materials
+    )
 
-        converted_block_entries, item_texture_data, terrain_texture_data  = process_block_overrides(
-            block_dir, pack_root, rp_root, bp_root, blocks_root, materials, item_texture_data, terrain_texture_data
-        )
+    converted_block_entries, item_texture_data, terrain_texture_data  = process_block_overrides(
+        block_dir, pack_root, rp_root, bp_root, blocks_root, materials, item_texture_data, terrain_texture_data
+    )
 
 
-        if not converted_item_entries:
-            raise RuntimeError("No convertible custom_model_data overrides were found")
+    if not converted_item_entries:
+        raise RuntimeError("No convertible custom_model_data overrides were found")
 
     # Write texture manifests
     write_texture_manifest(
@@ -232,7 +234,8 @@ def process_block_overrides(
             target_model = model_ref.get("model")
             if not target_model:
                 continue
-            process_single_block_override(model_ref, blocks_root)
+            # pass pack_root so the block processing reads from the extracted pack folder
+            process_single_block_override(model_ref, blocks_root, pack_root)
             item_texture_data[f"block_counter"] = { "texture": str(blocks_root /  (str(counter) + ".png")) }
             converted_file.append(variant)
             counter += 1
@@ -389,6 +392,7 @@ def process_single_item_override(
 def process_single_block_override(
     model_ref: dict[str, Any],
     blocks_root: Path,
+    pack_root: Path,
 ) -> None:
     """
     Process a single block model override entry.
@@ -411,15 +415,15 @@ def process_single_block_override(
 
     # Try to locate the model JSON in the extracted pack (workspace)
     namespace, relative_model = split_namespace(target_model, default_namespace="minecraft")
-    cwd = Path.cwd()
+    #    cwd = Path.cwd()
     model_glob = f"assets/{namespace}/models/{relative_model}.json"
     model_json = None
-    for p in cwd.rglob(model_glob):
+    for p in pack_root.rglob(model_glob):
         model_json = p
         break
     if model_json is None:
         # fallback: search by filename
-        for p in cwd.rglob(f"{relative_model}.json"):
+        for p in pack_root.rglob(f"{relative_model}.json"):
             model_json = p
             break
     if model_json is None:
@@ -444,19 +448,19 @@ def process_single_block_override(
         texture_ref = relative_model
 
     tex_ns, tex_rel = split_namespace(texture_ref, default_namespace=namespace)
-    tex_path = cwd / "assets" / tex_ns / "textures" / f"{tex_rel}.png"
+    tex_path = pack_root / "assets" / tex_ns / "textures" / f"{tex_rel}.png"
 
     if not tex_path.exists():
         # try globbing for the texture if the direct path doesn't exist
         texture_glob = f"assets/{tex_ns}/textures/{tex_rel}.png"
         found_tex = None
-        for p in cwd.rglob(texture_glob):
+        for p in pack_root.rglob(texture_glob):
             found_tex = p
             break
         if found_tex is None:
             # last-resort: search for any png that ends with the last path segment
             last_name = tex_rel.split("/")[-1]
-            for p in cwd.rglob(f"assets/*/textures/**/{last_name}.png"):
+            for p in pack_root.rglob(f"assets/*/textures/**/{last_name}.png"):
                 found_tex = p
                 break
         if found_tex is None:
