@@ -78,7 +78,9 @@ def convert_resource_pack(
         root.mkdir(parents=True, exist_ok=True)
 
     textures_root = rp_root / "textures"
+    blocks_root   = textures_root / "custom" / "block"
     textures_root.mkdir(parents=True, exist_ok=True)
+    blocks_root.mkdir(parents=True, exist_ok=True)
 
     materials = {
         "attachable_material": attachable_material,
@@ -231,6 +233,7 @@ def process_block_overrides(
             if not target_model:
                 continue
             process_single_block_override(model_ref)
+            item_texture_data[f"block_counter"] = { "texture": blocks_root + str(counter) + ".png" }
             converted_file.append(variant)
             counter += 1
 
@@ -460,14 +463,9 @@ def process_single_block_override(
             return
         tex_path = found_tex
 
-    # Destination inside the resource pack produced by convert_resource_pack
-    rp_root = cwd / "target" / "rp"
-    dest_dir = rp_root / "textures" / "custom" / "blocks"
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
     # Keep a simple persistent counter on the function to name files sequentially
     counter = getattr(process_single_block_override, "_counter", 0)
-    dest_file = dest_dir / f"{counter}.png"
+    dest_file = blocks_root / f"{counter}.png"
     try:
         shutil.copy2(tex_path, dest_file)
     except Exception as exc:
