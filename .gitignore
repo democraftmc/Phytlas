@@ -2,4 +2,4 @@ pack/
 __pycache__/
 target/
 output/
-.venv/
+.venv/test_output/
