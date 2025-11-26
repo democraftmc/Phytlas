@@ -57,5 +57,4 @@ def convert_model(
         return convert_2d_item(entry, resolved_model, rp_root, bp_root, textures_root, materials)
     else:
         # Route to 3D model conversion (item_3d.py)
-        return {}
         return convert_3d_item(entry, resolved_model, rp_root, bp_root, textures_root, materials)

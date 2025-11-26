@@ -9,7 +9,7 @@ Provides separate modules for 2D and 3D item conversion:
 from .parental import resolve_parental
 from .model_converter import convert_model
 from .item_2d import convert_2d_item, create_2d_item_definition, create_2d_attachable_definition
-from .item_3d import convert_3d_item, create_3d_block_definition, create_3d_attachable_definition
+from .item_3d import convert_3d_item, create_3d_item_definition, create_3d_attachable_definition
 from .geometry import build_geometry, round_value
 
 __all__ = [

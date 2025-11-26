@@ -36,3 +36,30 @@ This is a super duper secret project, not even knew by the DEMOCRAFT's staff. Pl
 
 **Python “Easy Lift” Targets**  
 The low-complexity helpers and early workflow stages are prime for initial reimplementation because they rely mostly on stdout, `subprocess`, and filesystem operations already available in Python’s standard library. Higher stages (`resolve_parental`, `generate_atlas`, `convert_model`) should wait until the JSON transformation plan is established (they’re tightly coupled to the jq programs and external tools).
+
+## Python Converter
+
+A Python implementation of the converter is available as `converter.py`. It mirrors the functionality of `converter.sh` but offers better error handling and maintainability.
+
+### Usage
+
+```bash
+python3 converter.py <path_to_resource_pack.zip> [options]
+```
+
+**Options:**
+- `-o`, `--output`: Output directory (default: `target`)
+- `--attachable-material`: Material for attachables (default: `entity_alphatest_one_sided`)
+- `--block-material`: Material for blocks (default: `alpha_test`)
+
+### Features
+- **3D Items**: Converted to Bedrock Items with Attachables.
+  - In-hand: Renders the custom 3D geometry.
+  - Inventory: Uses a 2D icon (extracted from `layer0` or first texture).
+- **2D Items**: Converted to Bedrock Items with standard textures.
+- **Atlases**: Automatically generated using Pillow (no external tools required).
+- **Manifests**: Automatically generated.
+
+### Requirements
+- Python 3.8+
+- Pillow (`pip install Pillow`)

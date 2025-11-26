@@ -416,6 +416,16 @@ def process_model_overrides(
                     "textures": f"textures/{entry['path_hash']}"
                 }
             else:
+                # For 3D items, we check if a custom icon was generated
+                icon_key = f"{entry['path_hash']}_icon"
+                icon_path = textures_root / f"{icon_key}.png"
+                if icon_path.exists():
+                    item_texture_data[icon_key] = {
+                        "textures": f"textures/{icon_key}"
+                    }
+                
+                # We also register the atlas in terrain_texture.json for completeness/debugging,
+                # although the attachable points to the file directly.
                 atlas_key = f"gmdl_atlas_{entry['path_hash']}"
                 terrain_texture_data[atlas_key] = {
                     "textures": f"textures/{entry['path_hash']}"
@@ -497,5 +507,29 @@ def process_single_item_override(
 # generates per-block atlases and geometries. The older helper that copied
 # texture files into the rp textures folder has been removed as it's unused.
 
+import argparse
+import sys
+
+# ...existing code...
+
 if __name__ == "__main__":
-    convert_resource_pack("pack.zip")
+    parser = argparse.ArgumentParser(
+        description="Convert Java Edition resource pack to Bedrock Edition."
+    )
+    parser.add_argument("input_pack", help="Path to the input resource pack (zip or directory)")
+    parser.add_argument("-o", "--output", help="Output directory", default="target")
+    parser.add_argument("--attachable-material", default="entity_alphatest_one_sided", help="Material for attachables")
+    parser.add_argument("--block-material", default="alpha_test", help="Material for blocks")
+
+    args = parser.parse_args()
+
+    try:
+        convert_resource_pack(
+            args.input_pack,
+            Path(args.output),
+            attachable_material=args.attachable_material,
+            block_material=args.block_material,
+        )
+    except Exception as e:
+        status_message("error", str(e))
+        sys.exit(1)
