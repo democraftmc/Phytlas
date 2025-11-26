@@ -46,24 +46,41 @@ def generate_atlas(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    images: dict[str, Any] = {}
+    # Deduplicate textures that point to the same PNG file so a single
+    # 16x16 source texture does not get stacked multiple times (which would
+    # incorrectly produce 16x32, 16x48, ... atlases).
+    unique_entries: list[dict[str, Any]] = []
+    image_cache: dict[Path, dict[str, Any]] = {}
+
+    for key, path in texture_files.items():
+        canonical_path = Path(path).resolve()
+        cached = image_cache.get(canonical_path)
+        if cached is None:
+            img = Image.open(canonical_path).convert("RGBA")
+            cached = {"image": img, "keys": []}
+            image_cache[canonical_path] = cached
+            unique_entries.append(cached)
+        cached["keys"].append(key)
+
     max_width = 0
     total_height = 0
-    
-    for key, path in texture_files.items():
-        img = Image.open(path).convert("RGBA")
-        images[key] = img
+    for entry in unique_entries:
+        img = entry["image"]
         max_width = max(max_width, img.width)
         total_height += img.height
 
     atlas_image = Image.new("RGBA", (max_width, total_height), (0, 0, 0, 0))
     frames: dict[str, dict[str, float]] = {}
     cursor_y = 0
-    
-    for key, img in images.items():
+
+    for entry in unique_entries:
+        img = entry["image"]
         atlas_image.paste(img, (0, cursor_y))
-        frames[key] = {"x": 0, "y": cursor_y, "w": img.width, "h": img.height}
+        frame = {"x": 0, "y": cursor_y, "w": img.width, "h": img.height}
+        for key in entry["keys"]:
+            frames[key] = frame.copy()
         cursor_y += img.height
+        img.close()
 
     atlas_path = output_dir / f"{atlas_name}.png"
     atlas_image.save(atlas_path)

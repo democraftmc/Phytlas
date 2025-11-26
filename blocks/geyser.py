@@ -28,6 +28,8 @@ def write_geyser_block_mappings(entries: dict[str, list[dict[str, str]]], output
             variant_key = entry.get("variant")
             if not variant_key:
                 continue
+            if "note=0" in variant_key:
+                variant_key = variant_key.replace("note=0", "note=24")
             geometry = entry.get("geometry", "cube_all")
             texture_key = entry.get("texture", f"block_{block_variant_index}")
             variants[variant_key] = {

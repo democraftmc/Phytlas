@@ -114,7 +114,6 @@ def build_geometry(
         if faces_payload:
             cube["uv"] = faces_payload
         cubes.append(cube)
-
     geometry = {
         "format_version": "1.16.0",
         "minecraft:geometry": [
