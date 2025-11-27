@@ -79,7 +79,9 @@ def convert_2d_item(
         attachable_material, 
         texture_target.name
     )
-    attachable_file = rp_attachables_dir / f"{model_name}.{path_hash}.attachable.json"
+    # Shorten filename to avoid path length issues on some platforms
+    short_name = model_name[:20] if len(model_name) > 20 else model_name
+    attachable_file = rp_attachables_dir / f"{short_name}.{path_hash}.attachable.json"
     attachable_file.write_text(json.dumps(attachable, indent=2), encoding="utf-8")
     files_written["attachable"] = attachable_file
 

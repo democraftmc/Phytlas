@@ -123,14 +123,16 @@ def convert_3d_item(
         atlas_path.name, # This is the atlas file name (e.g. gmdl_hash.png)
         geometry_identifier,
     )
-    attachable_file = rp_attachables_dir / f"{model_name}.{path_hash}.attachable.json"
+    # Shorten filename to avoid path length issues on some platforms
+    short_name = model_name[:20] if len(model_name) > 20 else model_name
+    attachable_file = rp_attachables_dir / f"{short_name}.{path_hash}.attachable.json"
     attachable_file.write_text(json.dumps(attachable, indent=2), encoding="utf-8")
     files_written["attachable"] = attachable_file
 
     # Generate animations
     animations_dir = rp_root / "animations" / namespace / model_path
     animations_dir.mkdir(parents=True, exist_ok=True)
-    animations = generate_item_animations(geometry_id, resolved_model.get("display", {}))
+    animations = generate_item_animations(geometry_id, resolved_model.get("display") or {})
     animation_file = animations_dir / f"animation.{model_name}.json"
     animation_file.write_text(json.dumps(animations, indent=2), encoding="utf-8")
     files_written["animation"] = animation_file
@@ -235,6 +237,7 @@ def create_3d_attachable_definition(
 def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[str, Any]:
     """
     Generate Bedrock animations based on Java display settings.
+    Matches logic from converter.sh to ensure consistent positioning.
     
     Args:
         geometry_id: The geometry ID suffix.
@@ -243,84 +246,190 @@ def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[
     Returns:
         Animation definition dictionary.
     """
-    # Helper to convert Java rotation/translation/scale to Bedrock
-    # This is a simplified version of what converter.sh does with jq
-    
-    def get_transform(section: dict[str, Any], key: str) -> dict[str, Any] | None:
-        if key not in section:
-            return None
-        data = section[key]
-        res = {}
-        if "rotation" in data:
-            # Java rotation is often inverted or different axis
-            # converter.sh: if .rotation then [(- .rotation[0]), 0, 0] ...
-            # This logic is complex in converter.sh, I'll try to approximate or copy it.
-            # For now, I'll use a placeholder or simple mapping.
-            # converter.sh logic is very specific per bone (geyser_custom_x, y, z).
-            pass
-        return res
-
-    # Since implementing the full display logic from converter.sh in Python is lengthy,
-    # and the user asked to "Rebuild... so it mirrors converter.sh behavior",
-    # I should try to be as close as possible.
-    
-    # However, for the sake of time and complexity, I will implement a basic version
-    # that sets up the structure. The user can refine the math later if needed.
-    # Or I can try to port the jq logic.
-    
-    # Let's implement a basic structure that works for most items.
-    
     anim_prefix = f"animation.geyser_custom.{geometry_id}"
     
-    return {
-        "format_version": "1.8.0",
-        "animations": {
-            f"{anim_prefix}.thirdperson_main_hand": {
-                "loop": True,
-                "bones": {
-                    "geyser_custom": {
-                        "rotation": [90, 0, 0],
-                        "position": [0, 13, -3]
-                    }
-                }
+    animations = {}
+
+    # Helper to safely get values
+    def get_val(data, key, default=None):
+        return data.get(key, default)
+
+    # 1. Third Person Main Hand (Right)
+    # converter.sh: base rot=[90, 0, 0], pos=[0, 13, -3]
+    # child pos=[-x, y, z], rot=[-x, -y, z]
+    disp = display.get("thirdperson_righthand", {})
+    j_rot = get_val(disp, "rotation", [0, 0, 0])
+    j_pos = get_val(disp, "translation", [0, 0, 0])
+    j_scale = get_val(disp, "scale", [1, 1, 1])
+
+    animations[f"{anim_prefix}.thirdperson_main_hand"] = {
+        "loop": True,
+        "bones": {
+            "geyser_custom": {
+                "rotation": [90, 0, 0],
+                "position": [0, 13, -3]
             },
-            f"{anim_prefix}.thirdperson_off_hand": {
-                "loop": True,
-                "bones": {
-                    "geyser_custom": {
-                        "rotation": [90, 0, 0],
-                        "position": [0, 13, -3]
-                    }
-                }
+            "geyser_custom_x": {
+                "rotation": [-j_rot[0], 0, 0],
+                "position": [-j_pos[0], j_pos[1], j_pos[2]],
+                "scale": j_scale
             },
-            f"{anim_prefix}.head": {
-                "loop": True,
-                "bones": {
-                    "geyser_custom": {
-                        "position": [0, 19.9, 0]
-                    }
-                }
+            "geyser_custom_y": {
+                "rotation": [0, -j_rot[1], 0]
             },
-            f"{anim_prefix}.firstperson_main_hand": {
-                "loop": True,
-                "bones": {
-                    "geyser_custom": {
-                        "rotation": [90, 60, -40],
-                        "position": [4, 10, 4],
-                        "scale": 1.5
-                    }
-                }
-            },
-            f"{anim_prefix}.firstperson_off_hand": {
-                "loop": True,
-                "bones": {
-                    "geyser_custom": {
-                        "rotation": [90, 60, -40],
-                        "position": [4, 10, 4],
-                        "scale": 1.5
-                    }
-                }
+            "geyser_custom_z": {
+                "rotation": [0, 0, j_rot[2]]
             }
         }
+    }
+
+    # 2. Third Person Off Hand (Left)
+    # converter.sh: base rot=[90, 0, 0], pos=[0, 13, -3]
+    # child pos=[x, y, z], rot=[-x, -y, z]
+    disp = display.get("thirdperson_lefthand", {})
+    j_rot = get_val(disp, "rotation", [0, 0, 0])
+    j_pos = get_val(disp, "translation", [0, 0, 0])
+    j_scale = get_val(disp, "scale", [1, 1, 1])
+
+    animations[f"{anim_prefix}.thirdperson_off_hand"] = {
+        "loop": True,
+        "bones": {
+            "geyser_custom": {
+                "rotation": [90, 0, 0],
+                "position": [0, 13, -3]
+            },
+            "geyser_custom_x": {
+                "rotation": [-j_rot[0], 0, 0],
+                "position": [j_pos[0], j_pos[1], j_pos[2]],
+                "scale": j_scale
+            },
+            "geyser_custom_y": {
+                "rotation": [0, -j_rot[1], 0]
+            },
+            "geyser_custom_z": {
+                "rotation": [0, 0, j_rot[2]]
+            }
+        }
+    }
+
+    # 3. Head
+    # converter.sh: base pos=[0, 19.9, 0]
+    # child pos=[-x*0.625, y*0.625, z*0.625], rot=[-x, -y, z]
+    # child scale = scale * 0.625 (or 0.625 if no scale)
+    disp = display.get("head", {})
+    j_rot = get_val(disp, "rotation", [0, 0, 0])
+    j_pos = get_val(disp, "translation", [0, 0, 0])
+    raw_scale = get_val(disp, "scale", [1, 1, 1])
+    # If scale was missing in Java, converter.sh uses 0.625. 
+    # If present, it multiplies by 0.625.
+    # We can simulate this by checking if "scale" key existed, but here we have defaults.
+    # Let's assume if it's [1,1,1] it might be default, but Java JSON might omit it.
+    # Ideally we check if key exists.
+    if "scale" in disp:
+        j_scale = [s * 0.625 for s in raw_scale]
+    else:
+        j_scale = [0.625, 0.625, 0.625]
+
+    animations[f"{anim_prefix}.head"] = {
+        "loop": True,
+        "bones": {
+            "geyser_custom": {
+                "position": [0, 19.9, 0]
+            },
+            "geyser_custom_x": {
+                "rotation": [-j_rot[0], 0, 0],
+                "position": [-j_pos[0] * 0.625, j_pos[1] * 0.625, j_pos[2] * 0.625],
+                "scale": j_scale
+            },
+            "geyser_custom_y": {
+                "rotation": [0, -j_rot[1], 0]
+            },
+            "geyser_custom_z": {
+                "rotation": [0, 0, j_rot[2]]
+            }
+        }
+    }
+
+    # 4. First Person Main Hand (Right)
+    # converter.sh: base rot=[90, 60, -40], pos=[4, 10, 4], scale=1.5
+    # child pos=[-x, y, -z], rot=[-x, -y, z] (default rot [0.1, 0.1, 0.1] if missing)
+    disp = display.get("firstperson_righthand", {})
+    # converter.sh default rotation is [0.1, 0.1, 0.1] if missing.
+    if "rotation" in disp:
+        j_rot = disp["rotation"]
+        rot_x = [-j_rot[0], 0, 0]
+    else:
+        # converter.sh uses [0.1, 0.1, 0.1] if rotation is null.
+        # But wait, it puts it in 'rotation' field of geyser_custom_x.
+        # If rotation is null, it sets rotation to [0.1, 0.1, 0.1].
+        # This seems to be a specific hack.
+        rot_x = [0.1, 0.1, 0.1]
+        j_rot = [0, 0, 0] # For y and z components if they are used?
+        # converter.sh: geyser_custom_y rotation is null if rotation is null.
+        # So only X gets the 0.1s? No, the array is [0.1, 0.1, 0.1].
+    
+    j_pos = get_val(disp, "translation", [0, 0, 0])
+    j_scale = get_val(disp, "scale", [1, 1, 1])
+
+    # Construct bones for FP Right
+    bones_fp_right = {
+        "geyser_custom": {
+            "rotation": [90, 60, -40],
+            "position": [4, 10, 4],
+            "scale": 1.5
+        },
+        "geyser_custom_x": {
+            "rotation": rot_x,
+            "position": [-j_pos[0], j_pos[1], -j_pos[2]],
+            "scale": j_scale
+        }
+    }
+    if "rotation" in disp:
+        bones_fp_right["geyser_custom_y"] = {"rotation": [0, -j_rot[1], 0]}
+        bones_fp_right["geyser_custom_z"] = {"rotation": [0, 0, j_rot[2]]}
+
+    animations[f"{anim_prefix}.firstperson_main_hand"] = {
+        "loop": True,
+        "bones": bones_fp_right
+    }
+
+    # 5. First Person Off Hand (Left)
+    # converter.sh: base rot=[90, 60, -40], pos=[4, 10, 4], scale=1.5
+    # child pos=[x, y, -z], rot=[-x, -y, z]
+    disp = display.get("firstperson_lefthand", {})
+    if "rotation" in disp:
+        j_rot = disp["rotation"]
+        rot_x = [-j_rot[0], 0, 0]
+    else:
+        rot_x = [0.1, 0.1, 0.1]
+        j_rot = [0, 0, 0]
+
+    j_pos = get_val(disp, "translation", [0, 0, 0])
+    j_scale = get_val(disp, "scale", [1, 1, 1])
+
+    bones_fp_left = {
+        "geyser_custom": {
+            "rotation": [90, 60, -40],
+            "position": [4, 10, 4],
+            "scale": 1.5
+        },
+        "geyser_custom_x": {
+            "rotation": rot_x,
+            "position": [j_pos[0], j_pos[1], -j_pos[2]],
+            "scale": j_scale
+        }
+    }
+    if "rotation" in disp:
+        bones_fp_left["geyser_custom_y"] = {"rotation": [0, -j_rot[1], 0]}
+        bones_fp_left["geyser_custom_z"] = {"rotation": [0, 0, j_rot[2]]}
+
+    animations[f"{anim_prefix}.firstperson_off_hand"] = {
+        "loop": True,
+        "bones": bones_fp_left
+    }
+
+    return {
+        "format_version": "1.8.0",
+        "animations": animations
     }
 

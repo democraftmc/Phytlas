@@ -131,8 +131,23 @@ def build_geometry(
                         "name": "geyser_custom",
                         "binding": "q.item_slot_to_bone_name(c.item_slot)",
                         "pivot": [0, 8, 0],
+                    },
+                    {
+                        "name": "geyser_custom_x",
+                        "parent": "geyser_custom",
+                        "pivot": [0, 8, 0],
+                    },
+                    {
+                        "name": "geyser_custom_y",
+                        "parent": "geyser_custom_x",
+                        "pivot": [0, 8, 0],
+                    },
+                    {
+                        "name": "geyser_custom_z",
+                        "parent": "geyser_custom_y",
+                        "pivot": [0, 8, 0],
                         "cubes": cubes,
-                    }
+                    },
                 ],
             }
         ],
