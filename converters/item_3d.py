@@ -82,18 +82,11 @@ def convert_3d_item(
     if icon_texture_path:
         # Copy icon texture to a location where it can be referenced
         # We use the same path structure as 2D items for consistency
-        icon_target = textures_root / f"{path_hash}.png"
-        # If atlas_path is already there, we might overwrite or conflict if names match?
-        # atlas_path is named {path_hash}.png too in generate_atlas?
-        # generate_atlas uses `atlas_name` which is `path_hash`.
-        # So atlas is at `textures_root / f"{path_hash}.png"`.
-        # Wait, if atlas is there, we can't put the icon there with the same name!
-        # `generate_atlas` returns `atlas_path`.
-        
-        # We should name the icon differently, e.g., `{path_hash}_icon.png`
+        # User requested format: gmdl_<hash>_icon.png
         icon_target = textures_root / f"{path_hash}_icon.png"
         shutil.copy2(icon_texture_path, icon_target)
-        icon_texture_name = f"{path_hash}_icon"
+        # The texture key in item definition will be gmdl_<hash>
+        icon_texture_name = path_hash
     else:
         # Fallback if no textures (shouldn't happen for valid models)
         icon_texture_name = "camera" # Vanilla fallback

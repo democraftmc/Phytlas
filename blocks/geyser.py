@@ -45,7 +45,7 @@ def write_geyser_block_mappings(entries: dict[str, list[dict[str, str]]], output
             
         block_json = {
             "name": block_type,
-            "included_in_creative_inventory": True,
+            "included_in_creative_inventory": False,
             "only_override_states": True,
             "place_air": True,
             "state_overrides": variants

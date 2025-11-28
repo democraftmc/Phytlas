@@ -417,11 +417,15 @@ def process_model_overrides(
                 }
             else:
                 # For 3D items, we check if a custom icon was generated
-                icon_key = f"{entry['path_hash']}_icon"
-                icon_path = textures_root / f"{icon_key}.png"
+                # The file is named gmdl_<hash>_icon.png
+                # The key is gmdl_<hash>
+                icon_key = f"gmdl_{entry['path_hash']}"
+                icon_filename = f"{icon_key}_icon"
+                icon_path = textures_root / f"{icon_filename}.png"
+                
                 if icon_path.exists():
                     item_texture_data[icon_key] = {
-                        "textures": f"textures/{icon_key}"
+                        "textures": f"textures/{icon_filename}"
                     }
                 
                 # We also register the atlas in terrain_texture.json for completeness/debugging,
