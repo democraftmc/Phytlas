@@ -14,10 +14,7 @@ from typing import Any, Mapping
 def convert_2d_item(
     entry: Mapping[str, Any],
     resolved_model: Mapping[str, Any],
-    rp_root: Path,
-    bp_root: Path,
     textures_root: Path,
-    materials: Mapping[str, str],
 ) -> dict[str, Path]:
     """
     Convert a 2D sprite/generated Java item into Bedrock assets.

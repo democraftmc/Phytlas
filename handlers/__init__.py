@@ -8,6 +8,7 @@ from .manifest import (
     write_disable_animation,
     write_texture_manifest,
     write_player_animation,
+    write_entity_data
 )
 from .language import (
     write_language_files,
@@ -20,6 +21,7 @@ __all__ = [
     "write_disable_animation",
     "write_texture_manifest",
     "write_language_files",
+    "write_entity_data",
     "format_display_name",
     "write_player_animation",
 ]

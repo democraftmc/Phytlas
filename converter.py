@@ -24,6 +24,7 @@ from handlers import (
     write_language_files,
     write_texture_manifest,
     write_player_animation,
+    write_entity_data,
 )
 from models import write_geyser_item_mappings
 from blocks import write_geyser_block_mappings
@@ -39,7 +40,7 @@ def convert_resource_pack(
     *,
     attachable_material: str = "entity_alphatest_one_sided",
     block_material: str = "alpha_test",
-) -> tuple[Path, Path]:
+) -> Path:
     """
     Convert a Java resource pack zip into Bedrock-ready resource/behavior packs plus Geyser mappings.
 
@@ -73,10 +74,8 @@ def convert_resource_pack(
     # Setup output structure
     output_root = Path(output_root or (Path.cwd() / "target"))
     shutil.rmtree(output_root, ignore_errors=True)
-    rp_root = output_root / "rp"
-    bp_root = output_root / "bp"
-    for root in (rp_root, bp_root):
-        root.mkdir(parents=True, exist_ok=True)
+    rp_root = output_root / "pack"
+    rp_root.mkdir(parents=True, exist_ok=True)
 
     textures_root = rp_root / "textures"
     custom_blocks_location = "custom_blocks"
@@ -111,10 +110,10 @@ def convert_resource_pack(
 
     # Build pack metadata and manifests
     meta = build_pack_metadata(pack_description)
-    build_pack_manifests(meta, rp_root, bp_root)
+    build_pack_manifests(meta, rp_root)
 
     # Copy pack icon if present
-    copy_pack_icon(pack_root, rp_root, bp_root)
+    copy_pack_icon(pack_root, rp_root)
 
     # Setup animations and placeholder texture
     write_player_animation(rp_root / "animation_controllers")
@@ -123,11 +122,11 @@ def convert_resource_pack(
 
     # Process model overrides
     converted_item_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
-        item_dir, pack_root, rp_root, bp_root, textures_root, materials
+        item_dir, pack_root, rp_root, textures_root, materials
     )
 
     converted_block_entries, terrain_texture_data  = process_block_overrides(
-        block_dir, pack_root, rp_root, bp_root, blocks_root, custom_blocks_location, terrain_texture_data
+        block_dir, pack_root, rp_root, blocks_root, custom_blocks_location, terrain_texture_data
     )
 
 
@@ -148,6 +147,7 @@ def convert_resource_pack(
 
     # Write language files
     write_language_files(rp_root / "texts", lang_entries)
+    write_entity_data(rp_root / "materials" / "entity.material")
 
     # Write Geyser mappings
     mappings_path = output_root / "item_geyser_mappings.json"
@@ -156,13 +156,11 @@ def convert_resource_pack(
     write_geyser_block_mappings(converted_block_entries, mappings_path)
 
     # Package outputs
-    resource_zip = output_root / f"{slugify(pack_description)}_resources.mcpack"
-    behavior_zip = output_root / f"{slugify(pack_description)}_behaviors.mcpack"
+    resource_zip = output_root / f"{slugify(pack_description)}.mcpack"
     zip_directory(rp_root, resource_zip)
-    zip_directory(bp_root, behavior_zip)
 
-    status_message("completion", f"Conversion complete -> {resource_zip.name}, {behavior_zip.name}")
-    return resource_zip, behavior_zip
+    status_message("completion", f"Conversion complete -> {resource_zip.name}")
+    return resource_zip
 
 
 def build_pack_metadata(pack_description: str) -> dict[str, Any]:
@@ -186,7 +184,7 @@ def build_pack_metadata(pack_description: str) -> dict[str, Any]:
     }
 
 
-def copy_pack_icon(pack_root: Path, rp_root: Path, bp_root: Path) -> None:
+def copy_pack_icon(pack_root: Path, rp_root: Path) -> None:
     """
     Copy pack.png icon to both resource and behavior packs if present.
 
@@ -197,13 +195,11 @@ def copy_pack_icon(pack_root: Path, rp_root: Path, bp_root: Path) -> None:
     """
     if (pack_root / "pack.png").exists():
         shutil.copy2(pack_root / "pack.png", rp_root / "pack_icon.png")
-        shutil.copy2(pack_root / "pack.png", bp_root / "pack_icon.png")
 
 def process_block_overrides(
     block_dir: Path,
     pack_root: Path,
     rp_root: Path,
-    bp_root: Path,
     blocks_root: Path,
     custom_blocks_location: str,
     terrain_texture_data: dict[str, dict[str, str]],
@@ -366,7 +362,6 @@ def process_model_overrides(
     item_dir: Path,
     pack_root: Path,
     rp_root: Path,
-    bp_root: Path,
     textures_root: Path,
     materials: dict[str, str],
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]], dict[str, dict[str, str]], list[tuple[str, str]]]:
@@ -413,7 +408,7 @@ def process_model_overrides(
             # Process single override
             entry = process_single_item_override(
                 item_id, cmd, index, target_model, pack_root, 
-                rp_root, bp_root, textures_root, materials
+                rp_root, textures_root, materials
             )
             
             if entry is None:
@@ -454,7 +449,6 @@ def process_single_item_override(
     target_model: str,
     pack_root: Path,
     rp_root: Path,
-    bp_root: Path,
     textures_root: Path,
     materials: dict[str, str],
 ) -> Optional[dict[str, Any]]:
@@ -518,10 +512,10 @@ def process_single_item_override(
 
         if is_2d:
             # Route to 2D sprite conversion (item_2d.py)
-            convert_2d_item(entry, resolved, rp_root, bp_root, textures_root, materials)
+            convert_2d_item(entry, resolved, textures_root)
         else:
             # Route to 3D model conversion (item_3d.py)
-            convert_3d_item(entry, resolved, rp_root, bp_root, textures_root, materials)
+            convert_3d_item(entry, resolved, rp_root, textures_root, materials)
     except Exception as exc:
         status_message("error", f"[C524] Conversion failed for {target_model}: {exc}")
         return None

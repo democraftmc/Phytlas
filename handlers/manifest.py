@@ -87,3 +87,22 @@ def write_texture_manifest(
         "texture_data": texture_data,
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+def write_entity_data(
+    path: Path, 
+) -> None:
+    """
+    Write a Bedrock texture manifest file.
+
+    Args:
+        path: Destination path for the manifest file.
+        atlas_name: Name of the texture atlas (e.g., "atlas.items").
+        texture_data: Mapping of texture identifiers to their configuration.
+
+    Returns:
+        None. Writes the manifest file.
+    """
+    
+    payload = {"materials": {"version": "1.0.0", "entity_alphatest_one_sided_glint:entity_alphatest_one_sided": {"+defines": ["GLINT"]}}}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

@@ -9,7 +9,7 @@ from typing import Any, Mapping
 from utils.logging import status_message
 
 
-def build_pack_manifests(meta: Mapping[str, Any], rp_dir: Path, bp_dir: Path) -> None:
+def build_pack_manifests(meta: Mapping[str, Any], rp_dir: Path) -> None:
     """
     Emit Bedrock resource/behavior pack manifest JSON scaffolding.
 
@@ -37,9 +37,7 @@ def build_pack_manifests(meta: Mapping[str, Any], rp_dir: Path, bp_dir: Path) ->
         raise ValueError(f"Missing manifest metadata keys: {', '.join(missing)}")
 
     rp_dir = Path(rp_dir)
-    bp_dir = Path(bp_dir)
     rp_dir.mkdir(parents=True, exist_ok=True)
-    bp_dir.mkdir(parents=True, exist_ok=True)
 
     version = list(meta.get("version", [1, 0, 0]))
     min_engine_version = list(meta.get("min_engine_version", [1, 18, 3]))
@@ -65,32 +63,6 @@ def build_pack_manifests(meta: Mapping[str, Any], rp_dir: Path, bp_dir: Path) ->
         ],
     }
 
-    bp_manifest = {
-        "format_version": 2,
-        "header": {
-            "description": description,
-            "name": pack_name,
-            "uuid": str(meta["behavior_header_uuid"]).lower(),
-            "version": version,
-            "min_engine_version": min_engine_version,
-        },
-        "modules": [
-            {
-                "description": description,
-                "type": "data",
-                "uuid": str(meta["behavior_module_uuid"]).lower(),
-                "version": version,
-            }
-        ],
-        "dependencies": [
-            {
-                "uuid": str(meta["resource_header_uuid"]).lower(),
-                "version": version,
-            }
-        ],
-    }
-
     (rp_dir / "manifest.json").write_text(json.dumps(rp_manifest, indent=2))
-    (bp_dir / "manifest.json").write_text(json.dumps(bp_manifest, indent=2))
 
     status_message("completion", "Generated Bedrock manifest scaffolding")

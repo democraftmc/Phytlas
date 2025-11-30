@@ -19,7 +19,6 @@ def convert_3d_item(
     entry: Mapping[str, Any],
     resolved_model: Mapping[str, Any],
     rp_root: Path,
-    bp_root: Path,
     textures_root: Path,
     materials: Mapping[str, str],
 ) -> dict[str, Path]:
@@ -54,20 +53,15 @@ def convert_3d_item(
     identifier = f"geyser_custom:{path_hash}"
 
     attachable_material = materials.get("attachable_material", "entity_alphatest_one_sided")
-    # block_material = materials.get("block_material", "alpha_test") # Unused for Items
 
     # Setup directories
     rp_models_dir = rp_root / "models" / "blocks" / namespace / model_path
     rp_models_dir.mkdir(parents=True, exist_ok=True)
 
-    bp_items_dir = bp_root / "items" / namespace / model_path
-    bp_items_dir.mkdir(parents=True, exist_ok=True)
-
     rp_attachables_dir = rp_root / "attachables" / namespace / model_path
     rp_attachables_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate texture atlas from model textures
-    # We place the 3D model atlas in a subdirectory to avoid name collision with the icon
     textures = resolved_model["texture_paths"]
     atlas_dir = textures_root / "models"
     atlas_key, frames, atlas_path, atlas_size = generate_atlas(
@@ -76,20 +70,17 @@ def convert_3d_item(
     files_written["atlas"] = atlas_path
 
     # Handle Icon (2D sprite for inventory)
-    # Try to find 'layer0' or use the first texture
     icon_texture_path = textures.get("layer0")
     if not icon_texture_path and textures:
         icon_texture_path = list(textures.values())[0]
     
     if icon_texture_path:
         # Copy icon texture to the root textures folder
-        # This allows us to use the path_hash as the texture key
         icon_target = textures_root / f"{path_hash}.png"
         shutil.copy2(icon_texture_path, icon_target)
         icon_texture_name = path_hash
     else:
-        # Fallback if no textures (shouldn't happen for valid models)
-        icon_texture_name = "camera" # Vanilla fallback
+        icon_texture_name = "camera"
 
     # Build Bedrock geometry from Java elements
     geometry_identifier = f"geometry.geyser_custom.{geometry_id}"
@@ -103,14 +94,7 @@ def convert_3d_item(
     geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
     files_written["geometry"] = geometry_file
 
-    # Write item definition (instead of block)
-    item_def = create_3d_item_definition(identifier, icon_texture_name)
-    item_file = bp_items_dir / f"{model_name}.json"
-    item_file.write_text(json.dumps(item_def, indent=2), encoding="utf-8")
-    files_written["item"] = item_file
-
-    # Write attachable definition
-    # The atlas is now in textures/models/{path_hash}.png
+    # Write attachable definition - FIXED: Correct enchanted material name
     attachable = create_3d_attachable_definition(
         identifier,
         attachable_material,
@@ -123,7 +107,7 @@ def convert_3d_item(
     attachable_file.write_text(json.dumps(attachable, indent=2), encoding="utf-8")
     files_written["attachable"] = attachable_file
 
-    # Generate animations
+    # Generate animations - USING YOUR PROVEN CODE
     animations_dir = rp_root / "animations" / namespace / model_path
     animations_dir.mkdir(parents=True, exist_ok=True)
     animations = generate_item_animations(geometry_id, resolved_model.get("display") or {})
@@ -183,6 +167,8 @@ def create_3d_attachable_definition(
         Attachable definition dictionary ready for JSON serialization.
     """
     geo_suffix = geometry_identifier.replace("geometry.geyser_custom.", "")
+    
+    # FIXED: Use the correct enchanted material name
     return {
         "format_version": "1.10.0",
         "minecraft:attachable": {
@@ -190,7 +176,7 @@ def create_3d_attachable_definition(
                 "identifier": identifier,
                 "materials": {
                     "default": material,
-                    "enchanted": "entity_alphatest_one_sided",
+                    "enchanted": "entity_alphatest_glint",  # FIXED: Correct material name
                 },
                 "textures": {
                     "default": f"textures/{atlas_filename}",
@@ -228,6 +214,7 @@ def create_3d_attachable_definition(
     }
 
 
+# KEEP YOUR PROVEN ANIMATION CODE EXACTLY AS IS
 def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[str, Any]:
     """
     Generate Bedrock animations based on Java display settings.
@@ -426,4 +413,3 @@ def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[
         "format_version": "1.8.0",
         "animations": animations
     }
-
