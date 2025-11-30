@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
-from converters import convert_model, resolve_parental, build_geometry
+from converters import resolve_parental, build_geometry, convert_2d_item, convert_3d_item
 from handlers import (
     format_display_name,
     locate_pack_root,
@@ -78,7 +78,7 @@ def convert_resource_pack(
         root.mkdir(parents=True, exist_ok=True)
 
     textures_root = rp_root / "textures"
-    custom_blocks_location = "custom/block"
+    custom_blocks_location = "custom_blocks"
     blocks_root   = textures_root / custom_blocks_location
     textures_root.mkdir(parents=True, exist_ok=True)
     blocks_root.mkdir(parents=True, exist_ok=True)
@@ -117,7 +117,7 @@ def convert_resource_pack(
 
     # Setup animations and placeholder texture
     write_disable_animation(rp_root / "animations")
-    ensure_placeholder_texture(textures_root / "0.png")
+    ensure_placeholder_texture(textures_root / "custom_blocks" / "placeholder.png")
 
     # Process model overrides
     converted_item_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
@@ -226,7 +226,7 @@ def process_block_overrides(
 
     # Create a shared cube geometry + atlas for fallbacks (Option A)
     try:
-        placeholder_tex = rp_root / "textures" / "0.png"
+        placeholder_tex = rp_root / "textures" / "custom_blocks" / "placeholder.png"
         # ensure blocks_root exists for atlas output
         blocks_root.mkdir(parents=True, exist_ok=True)
         cube_atlas_key, cube_frames, cube_atlas_path, cube_atlas_size = generate_atlas(
@@ -263,7 +263,7 @@ def process_block_overrides(
         try:
             block_data = json.loads(block_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            status_message("error", f"Skipping invalid JSON {block_file}: {exc}")
+            status_message("error", f"[C266] Skipping invalid JSON {block_file}: {exc}")
             continue
 
         for variant, model_ref in block_data.get("variants", {}).items():
@@ -283,13 +283,13 @@ def process_block_overrides(
                     model_json = p
                     break
             if model_json is None:
-                status_message("error", f"Block model JSON not found for {target_model}. Target: {model_ref}")
+                status_message("error", f"[C286] (you can ignore me) Block model JSON not found for {target_model}. Target: {model_ref}")
                 continue
 
             try:
                 resolved = resolve_parental(model_json, assets_root=pack_root)
             except Exception as exc:
-                status_message("error", f"Failed to resolve {model_json}: {exc}")
+                status_message("error", f"[C292] Failed to resolve {model_json}: {exc}")
                 continue
 
             # If the model is generated (sprite) or has no elements, fallback to a cube
@@ -324,14 +324,14 @@ def process_block_overrides(
             try:
                 atlas_key, frames, atlas_path, atlas_size = generate_atlas(resolved["texture_paths"], blocks_root, path_hash)
             except Exception as exc:
-                status_message("error", f"Atlas generation failed for {target_model}: {exc}")
+                status_message("error", f"[C327] Atlas generation failed for {target_model}: {exc}")
                 continue
 
             # Build Bedrock geometry and write it into the resource pack
             try:
                 geometry = build_geometry(elements, frames, atlas_size, geometry_identifier)
             except Exception as exc:
-                status_message("error", f"Geometry build failed for {target_model}: {exc}")
+                status_message("error", f"[C334] Geometry build failed for {target_model}: {exc}")
                 continue
 
             model_parts = relative_model.split("/")
@@ -343,7 +343,7 @@ def process_block_overrides(
             try:
                 geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
             except Exception as exc:
-                status_message("error", f"Failed to write geometry {geometry_file}: {exc}")
+                status_message("error", f"[C346] Failed to write geometry {geometry_file}: {exc}")
                 continue
 
             # Register texture in terrain texture manifest (paths relative to rp textures dir)
@@ -395,7 +395,7 @@ def process_model_overrides(
         try:
             model_data = json.loads(model_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            status_message("error", f"Skipping invalid JSON {model_file}: {exc}")
+            status_message("error", f"[C398] Skipping invalid JSON {model_file}: {exc}")
             continue
 
         for index, override in enumerate(model_data.get("overrides") or []):
@@ -425,7 +425,7 @@ def process_model_overrides(
             # Add texture data
             if entry["generated"]:
                 item_texture_data[entry["path_hash"]] = {
-                    "textures": f"textures/{entry['path_hash']}"
+                    "textures": f"textures/2d_items/{entry['path_hash']}"
                 }
             else:
                 # For 3D items, the icon is at textures/{path_hash}.png
@@ -477,13 +477,13 @@ def process_single_item_override(
     target_json = pack_root / "assets" / namespace / "models" / f"{relative_model}.json"
     
     if not target_json.exists():
-        status_message("error", f"Missing referenced model {target_model}")
+        status_message("error", f"[C480] Missing referenced model {target_model}")
         return None
 
     try:
         resolved = resolve_parental(target_json, assets_root=pack_root)
     except Exception as exc:
-        status_message("error", f"Failed to resolve {target_json}: {exc}")
+        status_message("error", f"[C486] Failed to resolve {target_json}: {exc}")
         return None
 
     predicate_key = f"{item_id}_cmd{cmd}_idx{index}"
@@ -507,9 +507,21 @@ def process_single_item_override(
     }
 
     try:
-        convert_model(entry, resolved, rp_root, bp_root, textures_root, materials)
+        required_keys = {"path_hash", "namespace", "model_path", "model_name", "generated"}
+        missing = required_keys - set(entry)
+        if missing:
+            raise ValueError(f"Entry missing required keys: {', '.join(sorted(missing))}")
+
+        is_2d = bool(entry["generated"])
+
+        if is_2d:
+            # Route to 2D sprite conversion (item_2d.py)
+            convert_2d_item(entry, resolved, rp_root, bp_root, textures_root, materials)
+        else:
+            # Route to 3D model conversion (item_3d.py)
+            convert_3d_item(entry, resolved, rp_root, bp_root, textures_root, materials)
     except Exception as exc:
-        status_message("error", f"Conversion failed for {target_model}: {exc}")
+        status_message("error", f"[C524] Conversion failed for {target_model}: {exc}")
         return None
 
     return entry
@@ -538,5 +550,5 @@ if __name__ == "__main__":
             block_material=args.block_material,
         )
     except Exception as e:
-        status_message("error", str(e))
+        status_message("error", "[Main Core]" + str(e))
         sys.exit(1)
