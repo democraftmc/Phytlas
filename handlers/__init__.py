@@ -7,6 +7,7 @@ from .pack_handler import (
 from .manifest import (
     write_disable_animation,
     write_texture_manifest,
+    write_player_animation,
 )
 from .language import (
     write_language_files,
@@ -20,4 +21,5 @@ __all__ = [
     "write_texture_manifest",
     "write_language_files",
     "format_display_name",
+    "write_player_animation",
 ]

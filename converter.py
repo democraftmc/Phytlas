@@ -23,6 +23,7 @@ from handlers import (
     write_disable_animation,
     write_language_files,
     write_texture_manifest,
+    write_player_animation,
 )
 from models import write_geyser_item_mappings
 from blocks import write_geyser_block_mappings
@@ -116,6 +117,7 @@ def convert_resource_pack(
     copy_pack_icon(pack_root, rp_root, bp_root)
 
     # Setup animations and placeholder texture
+    write_player_animation(rp_root / "animation_controllers")
     write_disable_animation(rp_root / "animations")
     ensure_placeholder_texture(textures_root / "custom_blocks" / "placeholder.png")
 
