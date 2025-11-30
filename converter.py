@@ -243,6 +243,12 @@ def process_block_overrides(
                     face: {"texture": "#all"}
                     for face in ("north", "south", "east", "west", "up", "down")
                 },
+                "item_display_transforms": {
+                    "thirdperson_righthand": {"scale": [0.5, 0.5, 0.5]},
+                    "thirdperson_lefthand": {"scale": [0.5, 0.5, 0.5]},
+                    "firstperson_righthand": {"scale": [0.5, 0.5, 0.5]},
+                    "firstperson_lefthand": {"scale": [0.5, 0.5, 0.5]}
+                }
             }
         ]
         rp_cube_models_dir = rp_root / "models" / "blocks" / "geyser_custom"
@@ -298,6 +304,12 @@ def process_block_overrides(
                             face: {"texture": "#all"}
                             for face in ("north", "south", "east", "west", "up", "down")
                         },
+                        "item_display_transforms": {
+                            "thirdperson_righthand": {"scale": [0.5, 0.5, 0.5]},
+                            "thirdperson_lefthand": {"scale": [0.5, 0.5, 0.5]},
+                            "firstperson_righthand": {"scale": [0.5, 0.5, 0.5]},
+                            "firstperson_lefthand": {"scale": [0.5, 0.5, 0.5]}
+                        }
                     }
                 ]
 
@@ -416,23 +428,18 @@ def process_model_overrides(
                     "textures": f"textures/{entry['path_hash']}"
                 }
             else:
-                # For 3D items, we check if a custom icon was generated
-                # The file is named gmdl_<hash>_icon.png
-                # The key is gmdl_<hash>
-                icon_key = f"gmdl_{entry['path_hash']}"
-                icon_filename = f"{icon_key}_icon"
-                icon_path = textures_root / f"{icon_filename}.png"
-                
-                if icon_path.exists():
-                    item_texture_data[icon_key] = {
-                        "textures": f"textures/{icon_filename}"
-                    }
+                # For 3D items, the icon is at textures/{path_hash}.png
+                # The key is {path_hash}
+                item_texture_data[entry["path_hash"]] = {
+                    "textures": f"textures/{entry['path_hash']}"
+                }
                 
                 # We also register the atlas in terrain_texture.json for completeness/debugging,
                 # although the attachable points to the file directly.
+                # The atlas is now in textures/models/{path_hash}.png
                 atlas_key = f"gmdl_atlas_{entry['path_hash']}"
                 terrain_texture_data[atlas_key] = {
-                    "textures": f"textures/{entry['path_hash']}"
+                    "textures": f"textures/models/{entry['path_hash']}"
                 }
 
     return converted_entries, item_texture_data, terrain_texture_data, lang_entries
@@ -507,14 +514,10 @@ def process_single_item_override(
 
     return entry
 
-# Note: block processing is now handled by `process_block_overrides` which
-# generates per-block atlases and geometries. The older helper that copied
-# texture files into the rp textures folder has been removed as it's unused.
 
 import argparse
 import sys
 
-# ...existing code...
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

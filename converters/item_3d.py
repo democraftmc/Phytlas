@@ -67,9 +67,11 @@ def convert_3d_item(
     rp_attachables_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate texture atlas from model textures
+    # We place the 3D model atlas in a subdirectory to avoid name collision with the icon
     textures = resolved_model["texture_paths"]
+    atlas_dir = textures_root / "models"
     atlas_key, frames, atlas_path, atlas_size = generate_atlas(
-        textures, textures_root, path_hash
+        textures, atlas_dir, path_hash
     )
     files_written["atlas"] = atlas_path
 
@@ -80,12 +82,10 @@ def convert_3d_item(
         icon_texture_path = list(textures.values())[0]
     
     if icon_texture_path:
-        # Copy icon texture to a location where it can be referenced
-        # We use the same path structure as 2D items for consistency
-        # User requested format: gmdl_<hash>_icon.png
-        icon_target = textures_root / f"{path_hash}_icon.png"
+        # Copy icon texture to the root textures folder
+        # This allows us to use the path_hash as the texture key
+        icon_target = textures_root / f"{path_hash}.png"
         shutil.copy2(icon_texture_path, icon_target)
-        # The texture key in item definition will be gmdl_<hash>
         icon_texture_name = path_hash
     else:
         # Fallback if no textures (shouldn't happen for valid models)
@@ -110,10 +110,11 @@ def convert_3d_item(
     files_written["item"] = item_file
 
     # Write attachable definition
+    # The atlas is now in textures/models/{path_hash}.png
     attachable = create_3d_attachable_definition(
         identifier,
         attachable_material,
-        atlas_path.name, # This is the atlas file name (e.g. gmdl_hash.png)
+        f"models/{atlas_path.name}", 
         geometry_identifier,
     )
     # Shorten filename to avoid path length issues on some platforms

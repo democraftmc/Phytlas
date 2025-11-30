@@ -4,3 +4,4 @@ target/
 output/
 .venv/test_output/
 misc
+sample_pack/
