@@ -36,12 +36,7 @@ def write_geyser_item_mappings(entries: Iterable[Mapping[str, Any]], output_path
         }
 
         icon_info = entry.get("bedrock_icon", {})
-        if entry.get("generated"):
-            payload["icon"] = entry["path_hash"]
-        else:
-            payload["icon"] = icon_info.get("icon", "camera")
-            if "frame" in icon_info:
-                payload["frame"] = icon_info["frame"]
+        payload["icon"] = entry["path_hash"]
 
         nbt = entry.get("nbt", {}) or {}
         if "CustomModelData" in nbt:

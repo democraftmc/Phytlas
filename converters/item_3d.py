@@ -76,11 +76,11 @@ def convert_3d_item(
     
     if icon_texture_path:
         # Copy icon texture to the root textures folder
-        icon_target = textures_root / f"{path_hash}.png"
+        icon_target = textures_root / "2d_renders" / f"{path_hash}.png"
         shutil.copy2(icon_texture_path, icon_target)
         icon_texture_name = path_hash
     else:
-        icon_texture_name = "camera"
+        icon_texture_name = "camera"    
 
     # Build Bedrock geometry from Java elements
     geometry_identifier = f"geometry.geyser_custom.{geometry_id}"
@@ -114,7 +114,6 @@ def convert_3d_item(
     animation_file = animations_dir / f"animation.{model_name}.json"
     animation_file.write_text(json.dumps(animations, indent=2), encoding="utf-8")
     files_written["animation"] = animation_file
-
     return files_written
 
 

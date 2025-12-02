@@ -119,6 +119,7 @@ def convert_resource_pack(
     write_player_animation(rp_root / "animation_controllers")
     write_disable_animation(rp_root / "animations")
     ensure_placeholder_texture(textures_root / "custom_blocks" / "placeholder.png")
+    ensure_placeholder_texture(textures_root / "misc" / "camera.png")
 
     # Process model overrides
     converted_item_entries, item_texture_data, terrain_texture_data, lang_entries = process_model_overrides(
@@ -132,7 +133,8 @@ def convert_resource_pack(
 
     if not converted_item_entries:
         raise RuntimeError("No convertible custom_model_data overrides were found")
-
+    
+    item_texture_data["camera"] = {"textures": "textures/misc/camera"}
     # Write texture manifests
     write_texture_manifest(
         rp_root / "textures" / "item_texture.json",
@@ -385,6 +387,9 @@ def process_model_overrides(
     lang_entries: list[tuple[str, str]] = []
 
     status_message("process", "Walking item override files")
+
+    mkdir_textures = textures_root / "2d_renders"
+    mkdir_textures.mkdir(parents=True, exist_ok=True)
     
     for model_file in sorted(item_dir.rglob("*.json")):
         item_id = f"minecraft:{model_file.stem}"
@@ -424,21 +429,14 @@ def process_model_overrides(
                 item_texture_data[entry["path_hash"]] = {
                     "textures": f"textures/2d_items/{entry['path_hash']}"
                 }
+
             else:
                 # For 3D items, the icon is at textures/{path_hash}.png
                 # The key is {path_hash}
                 item_texture_data[entry["path_hash"]] = {
-                    "textures": f"textures/{entry['path_hash']}"
+                    "textures": f"textures/2d_renders/{entry['path_hash']}"
                 }
                 
-                # We also register the atlas in terrain_texture.json for completeness/debugging,
-                # although the attachable points to the file directly.
-                # The atlas is now in textures/models/{path_hash}.png
-                atlas_key = f"gmdl_atlas_{entry['path_hash']}"
-                terrain_texture_data[atlas_key] = {
-                    "textures": f"textures/models/{entry['path_hash']}"
-                }
-
     return converted_entries, item_texture_data, terrain_texture_data, lang_entries
 
 
