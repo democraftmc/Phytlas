@@ -3,7 +3,7 @@
 <img src="./blob/images/logo.png" alt="Phytlas Logo" width="200"/>
 
 # 🐍 Phytlas  
-### _Context-Aware Translation Manager for DEMOCRAFT_
+### _Really Real Geyser Converter_
 
 <div align="center">
 A project from
