@@ -1,8 +1,24 @@
-# LetsFuckCapitalism
-Project Code: LetsFuckCapitalism.
-Use the magic of python to replace one specific anoying paid tool.
+<div align="center">
 
-This is a super duper secret project, not even knew by the DEMOCRAFT's staff. Please refer to the code name in the PRs/Issues.
+<img src="./blob/images/logo.png" alt="Phytlas Logo" width="200"/>
+
+# 🐍 Phytlas  
+### _Context-Aware Translation Manager for DEMOCRAFT_
+
+<div align="center">
+A project from
+<br/>
+<a href="https://democraft.fr/oss">
+<img src="https://github.com/democraftfr/.github/blob/main/titre-couleur-democraft.png?raw=true" alt="DEMOCRAFT Logo" width="220"/>
+</a>
+</div>
+
+---
+
+</div>
+
+## 🚀 Introduction
+**Pythlas** is 
 
 ## TODO/Bug Reports
 
