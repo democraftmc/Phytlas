@@ -8,8 +8,17 @@ from __future__ import annotations
 
 import json
 import shutil
+import math
 from pathlib import Path
 from typing import Any, Mapping
+
+try:
+    from PIL import Image
+    import numpy as np
+    
+except ImportError:
+    Image = None
+    np = None
 
 from services.texture_atlas import generate_atlas
 from .geometry import build_geometry
@@ -70,17 +79,29 @@ def convert_3d_item(
     files_written["atlas"] = atlas_path
 
     # Handle Icon (2D sprite for inventory)
-    icon_texture_path = textures.get("layer0")
-    if not icon_texture_path and textures:
-        icon_texture_path = list(textures.values())[0]
-    
-    if icon_texture_path:
-        # Copy icon texture to the root textures folder
-        icon_target = textures_root / "2d_renders" / f"{path_hash}.png"
-        shutil.copy2(icon_texture_path, icon_target)
-        icon_texture_name = path_hash
-    else:
-        icon_texture_name = "camera"    
+    icon_target = textures_root / "2d_renders" / f"{path_hash}.png"
+    icon_generated = False
+
+    if Image:
+        try:
+            generate_3d_render(resolved_model, textures, icon_target)
+            if icon_target.exists():
+                icon_texture_name = path_hash
+                icon_generated = True
+        except Exception as e:
+            print(f"Warning: Failed to generate 3D render for {model_name}: {e}")
+
+    if not icon_generated:
+        icon_texture_path = textures.get("layer0")
+        if not icon_texture_path and textures:
+            icon_texture_path = list(textures.values())[0]
+        
+        if icon_texture_path:
+            # Copy icon texture to the root textures folder
+            shutil.copy2(icon_texture_path, icon_target)
+            icon_texture_name = path_hash
+        else:
+            icon_texture_name = "camera"    
 
     # Build Bedrock geometry from Java elements
     geometry_identifier = f"geometry.geyser_custom.{geometry_id}"
@@ -296,7 +317,7 @@ def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[
 
     # If scale was missing in Java, converter.sh uses 0.625. 
     # If present, it multiplies by 0.625.
-    # We can simulate this by checking if "scale" key existed, but here we have defaults.
+    # We can simulate this by checking if "scale" key exists, but here we have defaults.
     # Let's assume if it's [1,1,1] it might be default, but Java JSON might omit it.
     # Ideally we check if key exists.
     if "scale" in disp:
@@ -406,3 +427,301 @@ def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[
         "format_version": "1.8.0",
         "animations": animations
     }
+
+
+def generate_3d_render(
+    model: Mapping[str, Any],
+    texture_paths: Mapping[str, Path],
+    output_path: Path,
+) -> None:
+    """
+    Generate a 3D render of the model using a simple ray-tracer with numpy.
+    Matches the logic of the provided JS example (Orthographic, Display transforms).
+    """
+    if not np or not Image:
+        print("Warning: numpy or PIL not installed, skipping 3D render.")
+        return
+
+    # 1. Load Textures
+    textures = {}
+    for key, path in texture_paths.items():
+        if path.exists():
+            try:
+                img = Image.open(path).convert("RGBA")
+                textures[key] = np.array(img)
+                # Handle aliases like #0 -> 0
+                textures[f"#{key}"] = textures[key]
+            except Exception:
+                pass
+    
+    if not textures:
+        return
+
+    # 2. Parse Elements & Build Scene
+    elements = model.get("elements", [])
+    if not elements:
+        return
+
+    scene_objects = []
+    all_corners = []
+    
+    # Helper: Matrix factories
+    def make_rotation_matrix(rx, ry, rz):
+        # Euler XYZ in degrees
+        rx, ry, rz = np.radians(rx), np.radians(ry), np.radians(rz)
+        cx, sx = np.cos(rx), np.sin(rx)
+        cy, sy = np.cos(ry), np.sin(ry)
+        cz, sz = np.cos(rz), np.sin(rz)
+        
+        Rx = np.array([[1, 0, 0, 0], [0, cx, -sx, 0], [0, sx, cx, 0], [0, 0, 0, 1]])
+        Ry = np.array([[cy, 0, sy, 0], [0, 1, 0, 0], [-sy, 0, cy, 0], [0, 0, 0, 1]])
+        Rz = np.array([[cz, -sz, 0, 0], [sz, cz, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        return Rz @ Ry @ Rx
+
+    def make_translation_matrix(tx, ty, tz):
+        T = np.eye(4)
+        T[:3, 3] = [tx, ty, tz]
+        return T
+
+    def make_scale_matrix(sx, sy, sz):
+        S = np.eye(4)
+        S[0,0], S[1,1], S[2,2] = sx, sy, sz
+        return S
+
+    # Global Display Transform (gui)
+    display_root = model.get("display") or {}
+    display = display_root.get("gui") or display_root.get("GUI") or {}
+
+    d_rot = display.get("rotation", [0, 0, 0])
+    d_pos = display.get("translation", [0, 0, 0])
+    d_scale = display.get("scale", [1, 1, 1])
+    
+    M_display = make_translation_matrix(*d_pos) @ \
+                make_rotation_matrix(*d_rot) @ \
+                make_scale_matrix(*d_scale)
+
+    for el in elements:
+        f = np.array(el["from"])
+        t = np.array(el["to"])
+        center = (f + t) / 2
+        dims = t - f
+        
+        # World center (centering 0..16 to -8..8)
+        cx, cy, cz = center - 8
+        
+        # Pivot
+        rot = el.get("rotation") or {}
+        origin = np.array(rot.get("origin", [8, 8, 8]))
+        axis = rot.get("axis", "y")
+        angle = rot.get("angle", 0)
+        
+        px, py, pz = origin - 8
+        
+        # M = T(px,py,pz) * R * T(cx-px, cy-py, cz-pz)
+        M_pivot_trans = make_translation_matrix(px, py, pz)
+        
+        if axis == "x": R = make_rotation_matrix(angle, 0, 0)
+        elif axis == "y": R = make_rotation_matrix(0, angle, 0)
+        else: R = make_rotation_matrix(0, 0, angle)
+        
+        M_offset = make_translation_matrix(cx-px, cy-py, cz-pz)
+        M_local = M_pivot_trans @ R @ M_offset
+        
+        # Apply Global
+        M_final = M_display @ M_local
+        M_inv = np.linalg.inv(M_final)
+        
+        scene_objects.append({
+            "M_inv": M_inv,
+            "M_final": M_final,
+            "dims": dims,
+            "faces": el.get("faces") or {}
+        })
+
+        # Collect corners for auto-fit
+        dx, dy, dz = dims / 2
+        corners_local = np.array([
+            [-dx, -dy, -dz], [dx, -dy, -dz], [dx, dy, -dz], [-dx, dy, -dz],
+            [-dx, -dy, dz], [dx, -dy, dz], [dx, dy, dz], [-dx, dy, dz]
+        ])
+        corners_h = np.concatenate([corners_local, np.ones((8, 1))], axis=1)
+        corners_world = (M_final @ corners_h.T).T[:, :3]
+        all_corners.append(corners_world)
+
+    # 3. Auto-fit Camera
+    if all_corners:
+        all_points = np.concatenate(all_corners, axis=0)
+        min_pt = np.min(all_points, axis=0)
+        max_pt = np.max(all_points, axis=0)
+        
+        # Bounding box in XY plane (Camera looks down Z)
+        # Note: We will flip Y axis later, but for size calculation it doesn't matter
+        width = max_pt[0] - min_pt[0]
+        height = max_pt[1] - min_pt[1]
+        
+        center_x = (min_pt[0] + max_pt[0]) / 2
+        center_y = (min_pt[1] + max_pt[1]) / 2
+        
+        # Add small margin (5%)
+        frustum_size = max(width, height) * 1.05
+        if frustum_size < 1.0: frustum_size = 16.0 # Fallback
+    else:
+        frustum_size = 16.0
+        center_x, center_y = 0, 0
+
+    RENDER_SIZE = 64
+    
+    # 4. Ray Tracing Setup
+    # Grid
+    xs = np.linspace(center_x - frustum_size/2, center_x + frustum_size/2, RENDER_SIZE)
+    ys = np.linspace(center_y + frustum_size/2, center_y - frustum_size/2, RENDER_SIZE)
+    
+    xv, yv = np.meshgrid(xs, ys)
+    
+    # Ray Origins (World): [x, y, 48]
+    ray_origins = np.stack([xv, yv, np.full_like(xv, 48)], axis=-1)
+    ray_dir = np.array([0, 0, -1])
+    
+    # Buffers
+    depth_buffer = np.full((RENDER_SIZE, RENDER_SIZE), np.inf)
+    color_buffer = np.zeros((RENDER_SIZE, RENDER_SIZE, 4), dtype=np.uint8)
+    
+    light_dir = np.array([0.6, 1.0, 0.8])
+    light_dir /= np.linalg.norm(light_dir)
+    
+    face_names = ["east", "west", "up", "down", "south", "north"]
+    normals = [
+        np.array([1,0,0]), np.array([-1,0,0]),
+        np.array([0,1,0]), np.array([0,-1,0]),
+        np.array([0,0,1]), np.array([0,0,-1])
+    ]
+
+    # 5. Render Loop
+    for obj in scene_objects:
+        dims = obj["dims"]
+        half_dims = dims / 2
+        M_inv = obj["M_inv"]
+        M_final = obj["M_final"]
+        
+        # Transform Rays to Local
+        ro_h = np.concatenate([ray_origins, np.ones((*ray_origins.shape[:2], 1))], axis=-1)
+        ro_local = (M_inv @ ro_h.reshape(-1, 4).T).T.reshape(RENDER_SIZE, RENDER_SIZE, 4)[..., :3]
+        
+        rd_h = np.append(ray_dir, 0)
+        rd_local = (M_inv @ rd_h)[:3]
+        
+        # Intersection
+        with np.errstate(divide='ignore'):
+            inv_rd = 1.0 / rd_local
+        
+        t1 = (-half_dims - ro_local) * inv_rd
+        t2 = (half_dims - ro_local) * inv_rd
+        
+        tmin = np.minimum(t1, t2)
+        tmax = np.maximum(t1, t2)
+        
+        t_enter = np.max(tmin, axis=-1)
+        t_exit = np.min(tmax, axis=-1)
+        
+        hit_mask = (t_exit >= t_enter) & (t_exit > 0)
+        
+        if not np.any(hit_mask):
+            continue
+            
+        # Hit Points (Local)
+        t_hit = t_enter[hit_mask]
+        p_hits_local = ro_local[hit_mask] + rd_local * t_hit[..., np.newaxis]
+        
+        # Depth Test (World Z)
+        p_hits_h = np.concatenate([p_hits_local, np.ones((len(p_hits_local), 1))], axis=-1)
+        p_hits_world = (M_final @ p_hits_h.T).T[..., :3]
+        depths = 48 - p_hits_world[..., 2]
+        
+        # Update Mask
+        current_depths = depth_buffer[hit_mask]
+        update_mask = depths < current_depths
+        
+        if not np.any(update_mask):
+            continue
+            
+        # Filter hits that passed depth test
+        final_hits_local = p_hits_local[update_mask]
+        final_depths = depths[update_mask]
+        
+        # Update Depth Buffer
+        hit_indices = np.where(hit_mask)
+        rows = hit_indices[0][update_mask]
+        cols = hit_indices[1][update_mask]
+        depth_buffer[rows, cols] = final_depths
+        
+        # Determine Face
+        d_east = np.abs(final_hits_local[..., 0] - half_dims[0])
+        d_west = np.abs(final_hits_local[..., 0] + half_dims[0])
+        d_up = np.abs(final_hits_local[..., 1] - half_dims[1])
+        d_down = np.abs(final_hits_local[..., 1] + half_dims[1])
+        d_south = np.abs(final_hits_local[..., 2] - half_dims[2])
+        d_north = np.abs(final_hits_local[..., 2] + half_dims[2])
+        
+        dists = np.stack([d_east, d_west, d_up, d_down, d_south, d_north], axis=-1)
+        face_idx = np.argmin(dists, axis=-1)
+        
+        # Shading & Texturing
+        for f_i, f_name in enumerate(face_names):
+            f_mask = (face_idx == f_i)
+            if not np.any(f_mask):
+                continue
+                
+            face_data = obj["faces"].get(f_name)
+            if not face_data:
+                continue
+                
+            tex_key = face_data.get("texture", "")
+            if tex_key.startswith("#"): tex_key = tex_key[1:]
+            texture = textures.get(tex_key)
+            if texture is None:
+                continue
+                
+            # UV Mapping
+            uvs = face_data.get("uv", [0, 0, 16, 16])
+            pts = final_hits_local[f_mask]
+            w, h, d = dims
+            x, y, z = pts[:, 0], pts[:, 1], pts[:, 2]
+            
+            # Simple planar mapping
+            if f_name == "north":   u, v = (half_dims[0] - x)/w, (half_dims[1] - y)/h
+            elif f_name == "south": u, v = (x + half_dims[0])/w, (half_dims[1] - y)/h
+            elif f_name == "east":  u, v = (half_dims[2] - z)/d, (half_dims[1] - y)/h
+            elif f_name == "west":  u, v = (z + half_dims[2])/d, (half_dims[1] - y)/h
+            elif f_name == "up":    u, v = (x + half_dims[0])/w, (half_dims[2] - z)/d
+            elif f_name == "down":  u, v = (x + half_dims[0])/w, (z + half_dims[2])/d
+            
+            u_tex = uvs[0] + (uvs[2] - uvs[0]) * u
+            v_tex = uvs[1] + (uvs[3] - uvs[1]) * v
+            
+            th, tw = texture.shape[:2]
+            tx = np.clip((u_tex/16.0 * tw).astype(int), 0, tw-1)
+            ty = np.clip((v_tex/16.0 * th).astype(int), 0, th-1)
+            
+            colors = texture[ty, tx]
+            
+            # Lighting
+            M_rot = M_final[:3, :3]
+            n_world = M_rot @ normals[f_i]
+            n_world /= np.linalg.norm(n_world)
+            diffuse = max(0.0, np.dot(n_world, light_dir))
+            intensity = min(1.0, 0.4 + diffuse * 0.6)
+            
+            colors[:, :3] = (colors[:, :3] * intensity).astype(np.uint8)
+            
+            # Write
+            f_rows = rows[f_mask]
+            f_cols = cols[f_mask]
+            
+            # Alpha test
+            alpha = colors[:, 3]
+            visible = alpha > 10
+            
+            color_buffer[f_rows[visible], f_cols[visible]] = colors[visible]
+
+    img = Image.fromarray(color_buffer, "RGBA")
+    img.save(output_path)
