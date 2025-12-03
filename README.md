@@ -51,4 +51,7 @@ python3 converter.py <path_to_resource_pack.zip> [options]
 - [x] Fix 3D model height (flying)
 - [x] Implement Bloc Mappings
 - [ ] Fix block mappings not allowed by Geyser (note=0)
-- [ ] Fix 3D model icon in inventory 
+- [ ] Fix 3D render icon rotation in inventory 
+- [ ] Fix 3D render icon for blocks
+- [ ] Add support for Sounds
+- [ ] Add support for armors (latest components only, not shaders)
