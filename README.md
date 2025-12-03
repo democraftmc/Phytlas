@@ -18,7 +18,9 @@ A project from
 </div>
 
 ## 🚀 Introduction
-**Pythlas** is a Minecraft: Java edition to Minecraft: Bedrock edition ressource pack converter. It uses the mappings provided by [Geyser]() to fill the gaps between the two editions (see more bellow).
+**Pythlas** is a Minecraft: Java edition to Minecraft: Bedrock edition ressource pack converter. It uses the mappings provided by [Geyser](https://geysermc.org/) to fill the gaps between the two editions (see more bellow).
+
+Pythlas is a open source project driven by the ocmmunity. If you want to suppor devopment, consider [sponsoring us](https://github.com/sponsors/Funasitien) or [donate trough ko-fi](https://ko-fi.com/funasitien).
 
 ## ✨ Features
 
@@ -55,3 +57,9 @@ python3 converter.py <path_to_resource_pack.zip> [options]
 - [ ] Fix 3D render icon for blocks
 - [ ] Add support for Sounds
 - [ ] Add support for armors (latest components only, not shaders)
+
+## 🪄 If you liked Pythlas...
+**...You might be interested in theses others projects :**
+
+- [BedrockAdder](https://github.com/Antwns/BedrockAdder), a V2 mapping converter by *Antwns* written in C
+- [IAGeyser](https://gitlab.com/pixlstudios/iageyser-rewrite), A PHP CLI tool to convert Minecraft Java Edition ItemsAdder packs to Geyser-compatible resource packs and custom mappings.
