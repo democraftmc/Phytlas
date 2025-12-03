@@ -2,6 +2,7 @@ pack/
 __pycache__/
 target/
 output/
-.venv/test_output/
 misc
 sample_pack/
+pack.zip
+.venv
