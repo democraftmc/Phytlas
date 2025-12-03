@@ -25,7 +25,7 @@ Phytlas is open source and driven by the community. If you'd like to support dev
 ## ✨ Features
 
 - 🐍 **Pure Python** — replaces the old Bash/jq script with a robust Python codebase.  
-- ⚔ **2D Item Support** — handles standard 2D items with custom model data (no fake 3D models).  
+- 🎨 **2D Item Support** — handles standard 2D items with custom model data (no fake 3D models).  
 - 🎲 **3D Model Conversion** — converts Java block/item models into Bedrock geometry and attachables.  
 - 📦 **Custom Block Support** — converts Java block textures and maps them to custom Bedrock variants.  
 - 🔎 **Display Mapping** — maps Java `display` settings (rotation, translation, scale) to Bedrock animations using a nested bone structure (`root` → `x` → `y` → `z`) to avoid gimbal lock and keep correct orientation.  
