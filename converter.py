@@ -134,7 +134,6 @@ def convert_resource_pack(
     if not converted_item_entries:
         raise RuntimeError("No convertible custom_model_data overrides were found")
     
-    item_texture_data["camera"] = {"textures": "textures/misc/camera"}
     # Write texture manifests
     write_texture_manifest(
         rp_root / "textures" / "item_texture.json",
@@ -385,6 +384,8 @@ def process_model_overrides(
     item_texture_data: dict[str, dict[str, str]] = {}
     terrain_texture_data: dict[str, dict[str, str]] = {}
     lang_entries: list[tuple[str, str]] = []
+
+    item_texture_data["camera"] = {"textures": "textures/misc/camera"}
 
     status_message("process", "Walking item override files")
 

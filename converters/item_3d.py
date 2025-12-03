@@ -94,20 +94,16 @@ def convert_3d_item(
     geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
     files_written["geometry"] = geometry_file
 
-    # Write attachable definition - FIXED: Correct enchanted material name
     attachable = create_3d_attachable_definition(
         identifier,
         attachable_material,
         f"models/{atlas_path.name}", 
         geometry_identifier,
     )
-    # Shorten filename to avoid path length issues on some platforms
     short_name = model_name[:20] if len(model_name) > 20 else model_name
     attachable_file = rp_attachables_dir / f"{short_name}.{path_hash}.attachable.json"
     attachable_file.write_text(json.dumps(attachable, indent=2), encoding="utf-8")
     files_written["attachable"] = attachable_file
-
-    # Generate animations - USING YOUR PROVEN CODE
     animations_dir = rp_root / "animations" / namespace / model_path
     animations_dir.mkdir(parents=True, exist_ok=True)
     animations = generate_item_animations(geometry_id, resolved_model.get("display") or {})
@@ -166,8 +162,6 @@ def create_3d_attachable_definition(
         Attachable definition dictionary ready for JSON serialization.
     """
     geo_suffix = geometry_identifier.replace("geometry.geyser_custom.", "")
-    
-    # FIXED: Use the correct enchanted material name
     return {
         "format_version": "1.10.0",
         "minecraft:attachable": {
@@ -175,7 +169,7 @@ def create_3d_attachable_definition(
                 "identifier": identifier,
                 "materials": {
                     "default": material,
-                    "enchanted": "entity_alphatest_glint",  # FIXED: Correct material name
+                    "enchanted": "entity_alphatest_glint",
                 },
                 "textures": {
                     "default": f"textures/{atlas_filename}",
@@ -213,7 +207,6 @@ def create_3d_attachable_definition(
     }
 
 
-# KEEP YOUR PROVEN ANIMATION CODE EXACTLY AS IS
 def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[str, Any]:
     """
     Generate Bedrock animations based on Java display settings.
@@ -300,6 +293,7 @@ def generate_item_animations(geometry_id: str, display: dict[str, Any]) -> dict[
     j_rot = get_val(disp, "rotation", [0, 0, 0])
     j_pos = get_val(disp, "translation", [0, 0, 0])
     raw_scale = get_val(disp, "scale", [1, 1, 1])
+
     # If scale was missing in Java, converter.sh uses 0.625. 
     # If present, it multiplies by 0.625.
     # We can simulate this by checking if "scale" key existed, but here we have defaults.

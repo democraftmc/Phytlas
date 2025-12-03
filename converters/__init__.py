@@ -12,14 +12,10 @@ from .item_3d import convert_3d_item, create_3d_attachable_definition
 from .geometry import build_geometry, round_value
 
 __all__ = [
-    # Main entry points
     "resolve_parental",
-    # 2D item conversion (separate from 3D)
     "convert_2d_item",
-    # 3D item conversion (separate from 2D)
     "convert_3d_item",
     "create_3d_attachable_definition",
-    # Geometry utilities
     "build_geometry",
     "round_value",
 ]
