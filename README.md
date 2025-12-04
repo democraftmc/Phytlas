@@ -59,6 +59,7 @@ python3 converter.py <path_to_resource_pack.zip> [options]
 * [ ] Fix 3D item icon rendering for blocks
 * [ ] Add sound support
 * [ ] Add armor support (latest components only — not shaders)
+* [ ] Add custom font support (by converting only compatible E`X` glyphs)
 
 ## 🪄 If you liked Phytlas...
 
