@@ -250,7 +250,7 @@ def process_font_overrides(
 
             counter += 1
         except Exception as exc:
-            status_message("error", f"[C252] Failed to process character {character}: {exc}")
+            status_message("error", f"[C253] Failed to process character {character}: {exc}")
             continue
 
     for file in converted_entries.keys():
