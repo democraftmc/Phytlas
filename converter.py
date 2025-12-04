@@ -235,8 +235,8 @@ def process_font_overrides(
             # Process each glyph to build the dictionary structure
             for glyph in bedrock_glyphs:
                 # Get unicode hex string (e.g., "E001")
-                code_point = ord(glyph)
-                hex_code = f"{code_point:04X}"
+                hex_code = f"{ord(glyph):04X}"
+                
                 
                 # Split into file_id (first 2 chars) and char_id (last 2 chars)
                 file_id = hex_code[:2]
