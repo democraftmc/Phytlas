@@ -28,7 +28,7 @@ from handlers import (
 )
 from models import write_geyser_item_mappings
 from blocks import write_geyser_block_mappings
-from fonts import is_bedrock_glyph
+from fonts import is_bedrock_glyph, generate_bedrock_glyph_font_file
 from services import build_pack_manifests, ensure_placeholder_texture
 from services.texture_atlas import generate_atlas
 from services.texture_utils import split_namespace
@@ -127,7 +127,7 @@ def convert_resource_pack(
         item_dir, pack_root, rp_root, textures_root, materials
     )
 
-    process_font_overrides(pack_root / "assets" / "minecraft" / "font" / "default.json", rp_root)
+    process_font_overrides(pack_root / "assets" / "minecraft" / "font" / "default.json", rp_root, pack_root)
 
     converted_block_entries, terrain_texture_data  = process_block_overrides(
         block_dir, pack_root, rp_root, blocks_root, custom_blocks_location, terrain_texture_data
@@ -203,6 +203,7 @@ def copy_pack_icon(pack_root: Path, rp_root: Path) -> None:
 def process_font_overrides(
     font_file_path: Path,
     rp_root: Path,
+    pack_root: Path,
 ) -> None:
     """
     Process all font override files and convert them to Bedrock format.
@@ -215,7 +216,7 @@ def process_font_overrides(
     Returns:
         None: Writes font files directly to the resource pack.
     """
-    converted_entries: dict[str, list[dict[str, str]]] = defaultdict(list)
+    converted_entries: dict[str, dict[str, str]] = defaultdict(dict)
     status_message("process", "Walking font override files")
     counter = 0
     font_file_data = json.loads(font_file_path.read_text(encoding="utf-8"))
@@ -226,15 +227,48 @@ def process_font_overrides(
             if not bedrock_glyphs:
                 continue
             
-            print(str(bedrock_glyphs[0]))
+            # Extract texture path from provider
+            texture_path = character.get("file")
+            if not texture_path:
+                continue
+
+            # Process each glyph to build the dictionary structure
+            for glyph in bedrock_glyphs:
+                # Get unicode hex string (e.g., "E001")
+                code_point = ord(glyph)
+                hex_code = f"{code_point:04X}"
+                
+                # Split into file_id (first 2 chars) and char_id (last 2 chars)
+                file_id = hex_code[:2]
+                char_id = hex_code[2:]
+                
+                # Populate dictionary
+                if file_id not in converted_entries:
+                    converted_entries[file_id] = {}
+                
+                converted_entries[file_id][char_id] = texture_path
 
             counter += 1
         except Exception as exc:
-            status_message("error", f"[C231] Failed to process character {character}: {exc}")
+            status_message("error", f"[C252] Failed to process character {character}: {exc}")
+            continue
+
+    for file in converted_entries.keys():
+        font_file = rp_root / "fonts" / f"glyph_{file}.png"
+        font_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            status_message("process", f"Generating Bedrock glyph font file at {font_file} with {len(converted_entries[file])} glyphs.")
+            generate_bedrock_glyph_font_file(
+                pack_root,
+                font_file,
+                converted_entries[file],
+            )
+        except Exception as exc:
+            status_message("error", f"[C249] Failed to generate font file {font_file}: {exc}")
             continue
 
 def process_block_overrides(
-    font_file: Path,
+    block_dir: Path,
     pack_root: Path,
     rp_root: Path,
     blocks_root: Path,
