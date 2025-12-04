@@ -243,9 +243,6 @@ def process_font_overrides(
                 char_id = hex_code[2:]
                 
                 # Populate dictionary
-                if file_id not in converted_entries:
-                    converted_entries[file_id] = {}
-                
                 converted_entries[file_id][char_id] = texture_path
 
             counter += 1
