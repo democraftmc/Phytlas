@@ -28,6 +28,7 @@ from handlers import (
 )
 from models import write_geyser_item_mappings
 from blocks import write_geyser_block_mappings
+from fonts import is_bedrock_glyph
 from services import build_pack_manifests, ensure_placeholder_texture
 from services.texture_atlas import generate_atlas
 from services.texture_utils import split_namespace
@@ -126,6 +127,8 @@ def convert_resource_pack(
         item_dir, pack_root, rp_root, textures_root, materials
     )
 
+    process_font_overrides(pack_root / "assets" / "minecraft" / "font" / "default.json", rp_root)
+
     converted_block_entries, terrain_texture_data  = process_block_overrides(
         block_dir, pack_root, rp_root, blocks_root, custom_blocks_location, terrain_texture_data
     )
@@ -197,8 +200,41 @@ def copy_pack_icon(pack_root: Path, rp_root: Path) -> None:
     if (pack_root / "pack.png").exists():
         shutil.copy2(pack_root / "pack.png", rp_root / "pack_icon.png")
 
+def process_font_overrides(
+    font_file_path: Path,
+    rp_root: Path,
+) -> None:
+    """
+    Process all font override files and convert them to Bedrock format.
+    Only copy/reformat characters that matches Bedrock glyphs.
+
+    Args:
+        font_file: Path to the Java font model JSON file.
+        rp_root: Resource pack root directory.
+
+    Returns:
+        None: Writes font files directly to the resource pack.
+    """
+    converted_entries: dict[str, list[dict[str, str]]] = defaultdict(list)
+    status_message("process", "Walking font override files")
+    counter = 0
+    font_file_data = json.loads(font_file_path.read_text(encoding="utf-8"))
+    for character in font_file_data.get("providers", []):
+        try:
+            glyphs = character.get("chars", [])
+            bedrock_glyphs = [g for g in glyphs if is_bedrock_glyph(g)]
+            if not bedrock_glyphs:
+                continue
+            
+            print(str(bedrock_glyphs[0]))
+
+            counter += 1
+        except Exception as exc:
+            status_message("error", f"[C231] Failed to process character {character}: {exc}")
+            continue
+
 def process_block_overrides(
-    block_dir: Path,
+    font_file: Path,
     pack_root: Path,
     rp_root: Path,
     blocks_root: Path,
@@ -206,7 +242,7 @@ def process_block_overrides(
     terrain_texture_data: dict[str, dict[str, str]],
 ) -> tuple[dict[str, list[dict[str, str]]], dict[str, dict[str, str]]]:
     """
-    Process all model override files and convert them to Bedrock format.
+    Process all block override files and convert them to Bedrock format.
 
     Args:
         block_dir: Directory containing Java block model variations
