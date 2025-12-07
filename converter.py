@@ -33,7 +33,7 @@ from services import build_pack_manifests, ensure_placeholder_texture
 from services.texture_atlas import generate_atlas
 from services.texture_utils import split_namespace
 from utils import hash_model_identifier, slugify, status_message, zip_directory
-
+from sounds import get_sounds_from_pack, create_sound_mapping
 
 def convert_resource_pack(
     input_zip: str | Path,
@@ -133,10 +133,12 @@ def convert_resource_pack(
         block_dir, pack_root, rp_root, blocks_root, custom_blocks_location, terrain_texture_data
     )
 
-
     if not converted_item_entries:
         raise RuntimeError("No convertible custom_model_data overrides were found")
     
+    sound_files = get_sounds_from_pack(pack_root)
+
+
     # Write texture manifests
     write_texture_manifest(
         rp_root / "textures" / "item_texture.json",
@@ -148,6 +150,7 @@ def convert_resource_pack(
         "atlas.terrain",
         terrain_texture_data,
     )
+    create_sound_mapping(sound_files, rp_root / "sounds" / "sound_definitions.json")
 
     # Write language files
     write_language_files(rp_root / "texts", lang_entries)

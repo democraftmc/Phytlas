@@ -53,13 +53,14 @@ python3 converter.py <path_to_resource_pack.zip> [options]
 
 * [x] Use two processors depending on whether an item is 2D or 3D
 * [x] Fix 3D model height (floating models)
-* [x] Implement block mappings)
+* [x] Implement block mappings
 * [x] Add custom font support (by converting only compatible E`X` glyphs)
+* [x] Add minecraft sounds support
 * [ ] Fix block mappings rejected by Geyser (note = 0)
 * [ ] Fix 3D item icon rotation in inventory
 * [ ] Fix 3D item icon rendering for blocks
-* [ ] Add sound support
-* [ ] Add armor support (latest components only — not shaders
+* [ ] Add custom sounds support
+* [ ] Add armor support (latest components only — not shaders)
 
 ## 🪄 If you liked Phytlas...
 
