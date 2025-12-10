@@ -42,6 +42,8 @@ Phytlas is open source and driven by the community. If you'd like to support dev
 2. Install Python and the necessary extension(s) with pip : `pip install Pillow` and `pip install numpy`
 3. Put your pack in the folder you just created by cloning the repo
 4. Run the folowing command:
+
+```bash
 python3 converter.py <path_to_resource_pack.zip> [options]
 ```
 
