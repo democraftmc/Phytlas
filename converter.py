@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import json
+import urllib.request
 import shutil
 import uuid
 import zipfile
@@ -89,12 +90,47 @@ def convert_resource_pack(
         "block_material": block_material,
     }
 
-    # Extract and process pack
-    status_message("process", f"Extracting {input_zip.name}")
-    # Extract into ./pack so humans can inspect the extracted files
+    status_message("process", "Downloading default assets...")
+
     extract_root = Path.cwd() / "pack"
     shutil.rmtree(extract_root, ignore_errors=True)
     extract_root.mkdir(parents=True, exist_ok=True)
+
+    cached_pack = Path("cache/default.zip").expanduser().resolve()
+    if not cached_pack.is_file():
+        status_message("process", "Caching default assets...")
+        cached_pack.parent.mkdir(parents=True, exist_ok=True)
+
+        url = 'https://github.com/InventivetalentDev/minecraft-assets/archive/refs/tags/1.21.11.zip'
+        urllib.request.urlretrieve(url, str(cached_pack))
+        status_message("process", "Default assets downloaded, unziping it...")
+
+    # Extract default assets and flatten directory structure
+    temp_extract = Path.cwd() / "temp_extract"
+    shutil.rmtree(temp_extract, ignore_errors=True)
+    temp_extract.mkdir(parents=True, exist_ok=True)
+    
+    with zipfile.ZipFile(cached_pack, 'r') as zip_file:
+        zip_file.extractall(temp_extract)
+    
+    # Find the extracted subdirectory and copy only textures to pack/
+    subdirs = [d for d in temp_extract.iterdir() if d.is_dir()]
+    if subdirs:
+        source_textures = subdirs[0] / "assets" / "minecraft" / "textures"
+        if source_textures.exists():
+            dest_dir = extract_root / "assets" / "minecraft" / "textures"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            for item in source_textures.iterdir():
+                if item.is_dir():
+                    shutil.copytree(str(item), str(dest_dir / item.name), dirs_exist_ok=True)
+                else:
+                    shutil.copy2(str(item), str(dest_dir / item.name))
+    
+    shutil.rmtree(temp_extract, ignore_errors=True)
+
+    # Extract and process custom pack (overlays default assets)
+    status_message("process", f"Extracting {input_zip.name}")
+    # Extract into ./pack so humans can inspect the extracted files
     with zipfile.ZipFile(input_zip, "r") as archive:
         archive.extractall(extract_root)
 
@@ -250,7 +286,7 @@ def process_font_overrides(
 
             counter += 1
         except Exception as exc:
-            status_message("error", f"[C253] Failed to process character {character}: {exc}")
+            status_message("error", f"[Skulk Sensor] Failed to process character {character}: {exc}")
             continue
 
     for file in converted_entries.keys():
@@ -264,7 +300,7 @@ def process_font_overrides(
                 converted_entries[file],
             )
         except Exception as exc:
-            status_message("error", f"[C249] Failed to generate font file {font_file}: {exc}")
+            status_message("error", f"[Redstone Torch] Failed to generate font file {font_file}: {exc}")
             continue
 
 def process_block_overrides(
@@ -332,7 +368,7 @@ def process_block_overrides(
         try:
             block_data = json.loads(block_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            status_message("error", f"[C266] Skipping invalid JSON {block_file}: {exc}")
+            status_message("error", f"[Jungle Planks] Skipping invalid JSON {block_file}: {exc}")
             continue
 
         for variant, model_ref in block_data.get("variants", {}).items():
@@ -352,13 +388,13 @@ def process_block_overrides(
                     model_json = p
                     break
             if model_json is None:
-                status_message("error", f"[C286] (you can ignore me) Block model JSON not found for {target_model}. Target: {model_ref}")
+                status_message("error", f"[Note Block] Block model JSON not found for {target_model}. Target: {model_ref}")
                 continue
 
             try:
                 resolved = resolve_parental(model_json, assets_root=pack_root)
             except Exception as exc:
-                status_message("error", f"[C292] Failed to resolve {model_json}: {exc}")
+                status_message("error", f"[Copper Torch] Failed to resolve {model_json}: {exc}")
                 continue
 
             # If the model is generated (sprite) or has no elements, fallback to a cube
@@ -393,14 +429,14 @@ def process_block_overrides(
             try:
                 atlas_key, frames, atlas_path, atlas_size = generate_atlas(resolved["texture_paths"], blocks_root, path_hash)
             except Exception as exc:
-                status_message("error", f"[C327] Atlas generation failed for {target_model}: {exc}")
+                status_message("error", f"[Iron Door] Atlas generation failed for {target_model}: {exc}")
                 continue
 
             # Build Bedrock geometry and write it into the resource pack
             try:
                 geometry = build_geometry(elements, frames, atlas_size, geometry_identifier)
             except Exception as exc:
-                status_message("error", f"[C334] Geometry build failed for {target_model}: {exc}")
+                status_message("error", f"[White Wool] Geometry build failed for {target_model}: {exc}")
                 continue
 
             model_parts = relative_model.split("/")
@@ -412,7 +448,7 @@ def process_block_overrides(
             try:
                 geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
             except Exception as exc:
-                status_message("error", f"[C346] Failed to write geometry {geometry_file}: {exc}")
+                status_message("error", f"[Red Wool] Failed to write geometry {geometry_file}: {exc}")
                 continue
 
             # Register texture in terrain texture manifest (paths relative to rp textures dir)
@@ -468,7 +504,7 @@ def process_model_overrides(
         try:
             model_data = json.loads(model_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            status_message("error", f"[C398] Skipping invalid JSON {model_file}: {exc}")
+            status_message("error", f"[Acacia Planks] Skipping invalid JSON {model_file}: {exc}")
             continue
 
         for index, override in enumerate(model_data.get("overrides") or []):
@@ -542,13 +578,13 @@ def process_single_item_override(
     target_json = pack_root / "assets" / namespace / "models" / f"{relative_model}.json"
     
     if not target_json.exists():
-        status_message("error", f"[C480] Missing referenced model {target_model}")
+        status_message("error", f"[Spruce Planks] Missing referenced model {target_model}")
         return None
 
     try:
         resolved = resolve_parental(target_json, assets_root=pack_root)
     except Exception as exc:
-        status_message("error", f"[C486] Failed to resolve {target_json}: {exc}")
+        status_message("error", f"[Redstone Torch] Failed to resolve {target_json}: {exc}")
         return None
 
     predicate_key = f"{item_id}_cmd{cmd}_idx{index}"
@@ -586,7 +622,7 @@ def process_single_item_override(
             # Route to 3D model conversion (item_3d.py)
             convert_3d_item(entry, resolved, rp_root, textures_root, materials)
     except Exception as exc:
-        status_message("error", f"[C524] Conversion failed for {target_model}: {exc}")
+        status_message("error", f"[Copper Bulb] Conversion failed for {target_model}: {exc}")
         return None
 
     return entry
@@ -615,5 +651,5 @@ if __name__ == "__main__":
             block_material=args.block_material,
         )
     except Exception as e:
-        status_message("error", "[Main Core]" + str(e))
+        status_message("error", "[Iron Block]" + str(e))
         sys.exit(1)

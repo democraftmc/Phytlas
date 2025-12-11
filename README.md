@@ -15,6 +15,9 @@ A project from
 
 ---
 
+> [!WARNING]
+> This converter is free, and was only made in the purpose of helping DEMOCRAFT's developer converting their ressource pack. It has not been tested with complexe setups, like model engines or huge animated texture. Please note that we are working for free on Phytlas, and so updates & bug fixes are not mandatory. If you want paid support, please consider looking at [my Ko-fi](https://ko-fi.com/funasitien).
+
 </div>
 
 ## 🚀 Introduction

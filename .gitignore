@@ -6,3 +6,6 @@ misc
 sample_pack/
 pack.zip
 .venv
+default.zip
+temp_extract/
+cache/
