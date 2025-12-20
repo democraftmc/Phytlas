@@ -9,3 +9,4 @@ pack.zip
 default.zip
 temp_extract/
 cache/
+*.log

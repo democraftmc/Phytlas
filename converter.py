@@ -15,6 +15,7 @@ import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Optional
+import subprocess
 
 from converters import resolve_parental, build_geometry, convert_2d_item, convert_3d_item
 from handlers import (
@@ -39,6 +40,7 @@ from sounds import get_sounds_from_pack, create_sound_mapping
 def convert_resource_pack(
     input_zip: str | Path,
     output_root: Optional[Path] = None,
+    cache_default: bool = False,
     *,
     attachable_material: str = "entity_alphatest_one_sided",
     block_material: str = "alpha_test",
@@ -96,37 +98,40 @@ def convert_resource_pack(
     shutil.rmtree(extract_root, ignore_errors=True)
     extract_root.mkdir(parents=True, exist_ok=True)
 
-    cached_pack = Path("cache/default.zip").expanduser().resolve()
-    if not cached_pack.is_file():
-        status_message("process", "Caching default assets...")
-        cached_pack.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["java", "-jar", "libs/BedrockAdderRenderer.jar", "set-pack", input_zip, "client.jar"], check=False)
 
-        url = 'https://github.com/InventivetalentDev/minecraft-assets/archive/refs/tags/1.21.11.zip'
-        urllib.request.urlretrieve(url, str(cached_pack))
-        status_message("process", "Default assets downloaded, unziping it...")
+    if cache_default:
+        cached_pack = Path("default.zip").expanduser().resolve()
+        if not cached_pack.is_file():
+            status_message("process", "Caching default assets...")
+            cached_pack.parent.mkdir(parents=True, exist_ok=True)
 
-    # Extract default assets and flatten directory structure
-    temp_extract = Path.cwd() / "temp_extract"
-    shutil.rmtree(temp_extract, ignore_errors=True)
-    temp_extract.mkdir(parents=True, exist_ok=True)
-    
-    with zipfile.ZipFile(cached_pack, 'r') as zip_file:
-        zip_file.extractall(temp_extract)
-    
-    # Find the extracted subdirectory and copy only textures to pack/
-    subdirs = [d for d in temp_extract.iterdir() if d.is_dir()]
-    if subdirs:
-        source_textures = subdirs[0] / "assets" / "minecraft" / "textures"
-        if source_textures.exists():
-            dest_dir = extract_root / "assets" / "minecraft" / "textures"
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            for item in source_textures.iterdir():
-                if item.is_dir():
-                    shutil.copytree(str(item), str(dest_dir / item.name), dirs_exist_ok=True)
-                else:
-                    shutil.copy2(str(item), str(dest_dir / item.name))
-    
-    shutil.rmtree(temp_extract, ignore_errors=True)
+            url = 'https://github.com/InventivetalentDev/minecraft-assets/archive/refs/tags/1.21.11.zip'
+            urllib.request.urlretrieve(url, str(cached_pack))
+            status_message("process", "Default assets downloaded, unziping it...")
+
+        # Extract default assets and flatten directory structure
+        temp_extract = Path.cwd() / "temp_extract"
+        shutil.rmtree(temp_extract, ignore_errors=True)
+        temp_extract.mkdir(parents=True, exist_ok=True)
+        
+        with zipfile.ZipFile(cached_pack, 'r') as zip_file:
+            zip_file.extractall(temp_extract)
+        
+        # Find the extracted subdirectory and copy only textures to pack/
+        subdirs = [d for d in temp_extract.iterdir() if d.is_dir()]
+        if subdirs:
+            source_textures = subdirs[0] / "assets" / "minecraft" / "textures"
+            if source_textures.exists():
+                dest_dir = extract_root / "assets" / "minecraft" / "textures"
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                for item in source_textures.iterdir():
+                    if item.is_dir():
+                        shutil.copytree(str(item), str(dest_dir / item.name), dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(str(item), str(dest_dir / item.name))
+        
+        shutil.rmtree(temp_extract, ignore_errors=True)
 
     # Extract and process custom pack (overlays default assets)
     status_message("process", f"Extracting {input_zip.name}")
@@ -137,6 +142,7 @@ def convert_resource_pack(
     pack_root = locate_pack_root(extract_root)
     if pack_root is None:
         raise RuntimeError("Unable to locate pack.mcmeta in the provided archive")
+
 
     item_dir = pack_root / "assets" / "minecraft" / "models" / "item"
     block_dir = pack_root / "assets" / "minecraft" / "blockstates"

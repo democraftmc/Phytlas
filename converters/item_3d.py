@@ -11,6 +11,7 @@ import shutil
 import math
 from pathlib import Path
 from typing import Any, Mapping
+import subprocess
 
 try:
     from PIL import Image
@@ -72,6 +73,7 @@ def convert_3d_item(
 
     # Generate texture atlas from model textures
     textures = resolved_model["texture_paths"]
+    placeholder = list(textures.keys())[0]
     atlas_dir = textures_root / "models"
     atlas_key, frames, atlas_path, atlas_size = generate_atlas(
         textures, atlas_dir, path_hash
@@ -84,7 +86,9 @@ def convert_3d_item(
 
     if Image:
         try:
-            generate_3d_render(resolved_model, textures, icon_target)
+            print(namespace + ":" + model_name,)
+            generate_cool_3d_render(namespace + ":" + model_name, str(icon_target))
+            #generate_3d_render(resolved_model, textures, icon_target)
             if icon_target.exists():
                 icon_texture_name = path_hash
                 icon_generated = True
@@ -92,13 +96,9 @@ def convert_3d_item(
             print(f"Warning: Failed to generate 3D render for {model_name}: {e}")
 
     if not icon_generated:
-        icon_texture_path = textures.get("layer0")
-        if not icon_texture_path and textures:
-            icon_texture_path = list(textures.values())[0]
-        
-        if icon_texture_path:
+        if placeholder:
             # Copy icon texture to the root textures folder
-            shutil.copy2(icon_texture_path, icon_target)
+            shutil.copy2(placeholder, icon_target)
             icon_texture_name = path_hash
         else:
             icon_texture_name = "camera"    
@@ -132,6 +132,10 @@ def convert_3d_item(
     animation_file.write_text(json.dumps(animations, indent=2), encoding="utf-8")
     files_written["animation"] = animation_file
     return files_written
+
+def generate_cool_3d_render(id, path):
+    subprocess.run(["java", "-jar", "libs/BedrockAdderRenderer.jar", "render", "512", id, path], check=False)
+
 
 
 def create_3d_item_definition(
