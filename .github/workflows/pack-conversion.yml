@@ -54,8 +54,11 @@ jobs:
         id: download
         continue-on-error: true
         run: |
-          echo "Downloading pack from: ${{ steps.extract_url.outputs.pack_url }}"
-          if curl -L -f -o pack.zip "${{ steps.extract_url.outputs.pack_url }}"; then
+          PACK_URL="${{ steps.extract_url.outputs.pack_url }}"
+          echo "Downloading pack from URL (URL hidden for security)"
+          
+          # Download with size limit (100MB max) and follow redirects
+          if curl -L -f --max-filesize 104857600 -o pack.zip "$PACK_URL"; then
             echo "Download successful"
             
             # Check if it's a valid zip file
@@ -72,7 +75,7 @@ jobs:
           else
             echo "Failed to download pack.zip"
             echo "download_status=failed" >> $GITHUB_OUTPUT
-            echo "error_message=Failed to download the resource pack from the provided URL" >> $GITHUB_OUTPUT
+            echo "error_message=Failed to download the resource pack from the provided URL. The URL may be invalid, the file may be too large (max 100MB), or the server may be unavailable." >> $GITHUB_OUTPUT
             exit 0  # Don't fail the step, we want to report the error
           fi
       
@@ -186,6 +189,7 @@ jobs:
             - The URL is publicly accessible (not behind authentication)
             - The URL points directly to a .zip file
             - The file is a valid ZIP archive
+            - The file size is under 100MB
             - The server hosting the file allows downloads
 
             ---
