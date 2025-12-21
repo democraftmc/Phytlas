@@ -1,0 +1,222 @@
+name: Pack Conversion
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  convert:
+    # Only run if the issue has the 'conversion' label
+    if: contains(github.event.issue.labels.*.name, 'conversion')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Extract pack URL from issue
+        id: extract_url
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueBody = context.payload.issue.body;
+            
+            // Parse the issue body to extract the pack URL
+            // GitHub issue forms create a structured body
+            const urlMatch = issueBody.match(/### Resource Pack URL\s+([^\s]+)/);
+            
+            if (!urlMatch || !urlMatch[1]) {
+              core.setFailed('Could not extract resource pack URL from issue');
+              return;
+            }
+            
+            const packUrl = urlMatch[1].trim();
+            core.setOutput('pack_url', packUrl);
+            core.info(`Extracted pack URL: ${packUrl}`);
+      
+      - name: Download resource pack
+        run: |
+          echo "Downloading pack from: ${{ steps.extract_url.outputs.pack_url }}"
+          curl -L -o pack.zip "${{ steps.extract_url.outputs.pack_url }}"
+          
+          # Verify the download
+          if [ ! -f pack.zip ]; then
+            echo "Failed to download pack.zip"
+            exit 1
+          fi
+          
+          # Check if it's a valid zip file
+          if ! unzip -t pack.zip > /dev/null 2>&1; then
+            echo "Downloaded file is not a valid zip archive"
+            exit 1
+          fi
+          
+          echo "Pack downloaded successfully"
+          ls -lh pack.zip
+      
+      - name: Run converter
+        id: convert
+        run: |
+          echo "Starting conversion..."
+          python converter.py pack.zip -o output 2>&1 | tee conversion.log
+          
+          # Check if conversion was successful
+          if [ $? -eq 0 ]; then
+            echo "Conversion completed successfully"
+            echo "conversion_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "Conversion failed"
+            echo "conversion_status=failed" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: List output files
+        if: steps.convert.outputs.conversion_status == 'success'
+        run: |
+          echo "Output files:"
+          ls -lh output/
+      
+      - name: Upload conversion artifacts
+        if: steps.convert.outputs.conversion_status == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: converted-pack-${{ github.event.issue.number }}
+          path: |
+            output/*.mcpack
+            output/*.json
+            conversion.log
+          retention-days: 30
+      
+      - name: Comment on issue - Success
+        if: steps.convert.outputs.conversion_status == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueNumber = context.issue.number;
+            
+            // Read conversion log
+            let logContent = '';
+            try {
+              logContent = fs.readFileSync('conversion.log', 'utf8');
+              // Limit log size to avoid GitHub API limits
+              if (logContent.length > 10000) {
+                logContent = logContent.substring(0, 10000) + '\n... (log truncated)';
+              }
+            } catch (error) {
+              logContent = 'Log file not available';
+            }
+            
+            // List output files
+            let outputFiles = '';
+            try {
+              const files = fs.readdirSync('output');
+              outputFiles = files.map(f => `- ${f}`).join('\n');
+            } catch (error) {
+              outputFiles = 'Unable to list output files';
+            }
+            
+            const comment = `## ✅ Conversion Successful!
+
+            Your resource pack has been converted successfully!
+
+            ### Output Files
+            ${outputFiles}
+
+            ### Download
+            You can download the converted pack from the [Actions artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).
+
+            ### Conversion Log
+            <details>
+            <summary>Click to view conversion log</summary>
+
+            \`\`\`
+            ${logContent}
+            \`\`\`
+            </details>
+
+            ---
+            This issue will now be closed. Thank you for using Phytlas! 🐍`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+      
+      - name: Comment on issue - Failure
+        if: steps.convert.outputs.conversion_status == 'failed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueNumber = context.issue.number;
+            
+            // Read conversion log
+            let logContent = '';
+            try {
+              logContent = fs.readFileSync('conversion.log', 'utf8');
+              // Limit log size
+              if (logContent.length > 10000) {
+                logContent = logContent.substring(0, 10000) + '\n... (log truncated)';
+              }
+            } catch (error) {
+              logContent = 'Log file not available';
+            }
+            
+            const comment = `## ❌ Conversion Failed
+
+            Unfortunately, the conversion process failed. This could be due to:
+            - Invalid resource pack structure
+            - Unsupported pack format
+            - Missing required files in the pack
+            - Network issues during download
+
+            ### Error Log
+            <details>
+            <summary>Click to view error log</summary>
+
+            \`\`\`
+            ${logContent}
+            \`\`\`
+            </details>
+
+            Please check your resource pack and try again. If the problem persists, please report this as a bug.
+
+            ---
+            This issue will now be closed.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+      
+      - name: Close issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });

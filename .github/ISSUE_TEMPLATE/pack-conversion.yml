@@ -1,0 +1,36 @@
+name: Resource Pack Conversion
+description: Request automatic conversion of a Java Edition resource pack to Bedrock Edition
+title: "[Conversion] "
+labels: ["conversion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for using Phytlas! Please provide the resource pack URL below, and our automated system will convert it for you.
+  
+  - type: input
+    id: pack_url
+    attributes:
+      label: Resource Pack URL
+      description: Direct download URL to your Java Edition resource pack (must be a .zip file)
+      placeholder: https://example.com/resourcepack.zip
+    validations:
+      required: true
+  
+  - type: textarea
+    id: additional_info
+    attributes:
+      label: Additional Information (Optional)
+      description: Any additional context or notes about your resource pack
+      placeholder: Tell us anything else that might be helpful
+    validations:
+      required: false
+  
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      description: By submitting this issue, you agree that the resource pack URL is publicly accessible and you have the rights to convert it.
+      options:
+        - label: I confirm that the resource pack URL is valid and publicly accessible
+          required: true
