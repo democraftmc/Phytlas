@@ -51,38 +51,44 @@ jobs:
             core.info(`Extracted pack URL: ${packUrl}`);
       
       - name: Download resource pack
+        id: download
+        continue-on-error: true
         run: |
           echo "Downloading pack from: ${{ steps.extract_url.outputs.pack_url }}"
-          curl -L -o pack.zip "${{ steps.extract_url.outputs.pack_url }}"
-          
-          # Verify the download
-          if [ ! -f pack.zip ]; then
+          if curl -L -f -o pack.zip "${{ steps.extract_url.outputs.pack_url }}"; then
+            echo "Download successful"
+            
+            # Check if it's a valid zip file
+            if unzip -t pack.zip > /dev/null 2>&1; then
+              echo "Pack downloaded and validated successfully"
+              echo "download_status=success" >> $GITHUB_OUTPUT
+              ls -lh pack.zip
+            else
+              echo "Downloaded file is not a valid zip archive"
+              echo "download_status=failed" >> $GITHUB_OUTPUT
+              echo "error_message=Downloaded file is not a valid zip archive" >> $GITHUB_OUTPUT
+              exit 0  # Don't fail the step, we want to report the error
+            fi
+          else
             echo "Failed to download pack.zip"
-            exit 1
+            echo "download_status=failed" >> $GITHUB_OUTPUT
+            echo "error_message=Failed to download the resource pack from the provided URL" >> $GITHUB_OUTPUT
+            exit 0  # Don't fail the step, we want to report the error
           fi
-          
-          # Check if it's a valid zip file
-          if ! unzip -t pack.zip > /dev/null 2>&1; then
-            echo "Downloaded file is not a valid zip archive"
-            exit 1
-          fi
-          
-          echo "Pack downloaded successfully"
-          ls -lh pack.zip
       
       - name: Run converter
+        if: steps.download.outputs.download_status == 'success'
         id: convert
+        continue-on-error: true
         run: |
           echo "Starting conversion..."
-          python converter.py pack.zip -o output 2>&1 | tee conversion.log
-          
-          # Check if conversion was successful
-          if [ $? -eq 0 ]; then
+          if python converter.py pack.zip -o output 2>&1 | tee conversion.log; then
             echo "Conversion completed successfully"
             echo "conversion_status=success" >> $GITHUB_OUTPUT
           else
             echo "Conversion failed"
             echo "conversion_status=failed" >> $GITHUB_OUTPUT
+            exit 0  # Don't fail the step, we want to report the error
           fi
       
       - name: List output files
@@ -152,6 +158,38 @@ jobs:
 
             ---
             This issue will now be closed. Thank you for using Phytlas! 🐍`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+      
+      - name: Comment on issue - Download Failed
+        if: steps.download.outputs.download_status == 'failed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue.number;
+            const errorMessage = '${{ steps.download.outputs.error_message }}';
+            
+            const comment = `## ❌ Download Failed
+
+            Unfortunately, we couldn't download the resource pack from the provided URL.
+
+            ### Error
+            ${errorMessage}
+
+            ### Troubleshooting
+            Please ensure that:
+            - The URL is publicly accessible (not behind authentication)
+            - The URL points directly to a .zip file
+            - The file is a valid ZIP archive
+            - The server hosting the file allows downloads
+
+            ---
+            This issue will now be closed. Please check your URL and try again.`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
