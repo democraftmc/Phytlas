@@ -134,7 +134,7 @@ def convert_3d_item(
     return files_written
 
 def generate_cool_3d_render(id, path):
-    subprocess.run(["java", "-jar", "libs/BedrockAdderRenderer.jar", "render", "512", id, path], check=False)
+    subprocess.run(["java", "-jar", "libs/BedrockAdderRenderer-1.3.6.jar", "render", "512", id, path], check=False)
 
 
 

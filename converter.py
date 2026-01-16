@@ -1,10 +1,3 @@
-"""
-High-level resource pack converter orchestration.
-
-This module provides the main entry point for converting Java Edition resource packs
-to Bedrock Edition format with Geyser custom model support.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -98,7 +91,7 @@ def convert_resource_pack(
     shutil.rmtree(extract_root, ignore_errors=True)
     extract_root.mkdir(parents=True, exist_ok=True)
 
-    subprocess.run(["java", "-jar", "libs/BedrockAdderRenderer.jar", "set-pack", input_zip, "client.jar"], check=False)
+    subprocess.run(["java", "-jar", "libs/BedrockAdderRenderer-1.3.6.jar", "set-pack", input_zip, "client.jar"], check=False)
 
     if cache_default:
         cached_pack = Path("default.zip").expanduser().resolve()
