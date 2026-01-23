@@ -103,6 +103,6 @@ def write_entity_data(
         None. Writes the manifest file.
     """
     
-    payload = {"materials": {"version": "1.0.0", "entity_alphatest_one_sided_glint:entity_alphatest_one_sided": {"+defines": ["GLINT"]}}}
+    payload = {"materials": {"version": "1.0.0", "entity_alphatest_one_sided_glint:entity_alphablend": {"+defines": ["GLINT"]}}}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

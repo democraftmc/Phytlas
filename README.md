@@ -53,7 +53,7 @@ python3 converter.py <path_to_resource_pack.zip> [options]
 **Options**
 
 * `-o`, `--output` — Output directory (default: `target`)
-* `--attachable-material` — Material used for attachables (default: `entity_alphatest_one_sided`)
+* `--attachable-material` — Material used for attachables (default: `entity_alphablend`)
 * `--block-material` — Material used for blocks (default: `alpha_test`)
 
 ## 📌 TODO / Known issues

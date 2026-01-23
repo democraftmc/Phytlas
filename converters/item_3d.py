@@ -62,7 +62,7 @@ def convert_3d_item(
     geometry_id = entry.get("geometry", path_hash)
     identifier = f"geyser_custom:{path_hash}"
 
-    attachable_material = materials.get("attachable_material", "entity_alphatest_one_sided")
+    attachable_material = materials.get("attachable_material", "entity_alphablend")
 
     # Setup directories
     rp_models_dir = rp_root / "models" / "blocks" / namespace / model_path

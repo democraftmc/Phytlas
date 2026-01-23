@@ -10,3 +10,4 @@ default.zip
 temp_extract/
 cache/
 *.log
+logs

@@ -35,7 +35,7 @@ def convert_resource_pack(
     output_root: Optional[Path] = None,
     cache_default: bool = False,
     *,
-    attachable_material: str = "entity_alphatest_one_sided",
+    attachable_material: str = "entity_alphablend",
     block_material: str = "alpha_test",
 ) -> Path:
     """
@@ -637,7 +637,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("input_pack", help="Path to the input resource pack (zip or directory)")
     parser.add_argument("-o", "--output", help="Output directory", default="target")
-    parser.add_argument("--attachable-material", default="entity_alphatest_one_sided", help="Material for attachables")
+    parser.add_argument("--attachable-material", default="entity_alphablend", help="Material for attachables")
     parser.add_argument("--block-material", default="alpha_test", help="Material for blocks")
 
     args = parser.parse_args()
