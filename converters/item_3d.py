@@ -112,7 +112,7 @@ def convert_3d_item(
         geometry_identifier
     )
     geometry_file = rp_models_dir / f"{model_name}.json"
-    geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
+    geometry_file.write_text(json.dumps(geometry), encoding="utf-8")
     files_written["geometry"] = geometry_file
 
     attachable = create_3d_attachable_definition(
@@ -123,13 +123,13 @@ def convert_3d_item(
     )
     short_name = model_name[:20] if len(model_name) > 20 else model_name
     attachable_file = rp_attachables_dir / f"{short_name}.{path_hash}.attachable.json"
-    attachable_file.write_text(json.dumps(attachable, indent=2), encoding="utf-8")
+    attachable_file.write_text(json.dumps(attachable), encoding="utf-8")
     files_written["attachable"] = attachable_file
     animations_dir = rp_root / "animations" / namespace / model_path
     animations_dir.mkdir(parents=True, exist_ok=True)
     animations = generate_item_animations(geometry_id, resolved_model.get("display") or {})
     animation_file = animations_dir / f"animation.{model_name}.json"
-    animation_file.write_text(json.dumps(animations, indent=2), encoding="utf-8")
+    animation_file.write_text(json.dumps(animations), encoding="utf-8")
     files_written["animation"] = animation_file
     return files_written
 

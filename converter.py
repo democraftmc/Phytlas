@@ -358,7 +358,7 @@ def process_block_overrides(
         rp_cube_models_dir = rp_root / "models" / "blocks" / "geyser_custom"
         rp_cube_models_dir.mkdir(parents=True, exist_ok=True)
         cube_geometry = build_geometry(cube_elements, cube_frames, cube_atlas_size, cube_geometry_identifier)
-        (rp_cube_models_dir / "cube.json").write_text(json.dumps(cube_geometry, indent=2), encoding="utf-8")
+        (rp_cube_models_dir / "cube.json").write_text(json.dumps(cube_geometry), encoding="utf-8")
         # Register cube atlas in terrain texture manifest data
         terrain_texture_data[cube_atlas_key] = {"textures": f"textures/{custom_blocks_location}/{cube_atlas_path.name}"}
     except Exception as exc:
@@ -445,7 +445,7 @@ def process_block_overrides(
             rp_models_dir.mkdir(parents=True, exist_ok=True)
             geometry_file = rp_models_dir / f"{model_name}.{geometry_id}.json"
             try:
-                geometry_file.write_text(json.dumps(geometry, indent=2), encoding="utf-8")
+                geometry_file.write_text(json.dumps(geometry), encoding="utf-8")
             except Exception as exc:
                 status_message("error", f"[Red Wool] Failed to write geometry {geometry_file}: {exc}")
                 continue

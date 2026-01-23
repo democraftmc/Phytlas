@@ -53,5 +53,5 @@ def create_sound_mapping(mappings : dict[str, list[str]], output_path: Path):
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(geyser_json, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(geyser_json), encoding="utf-8")
 

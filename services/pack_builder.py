@@ -63,6 +63,6 @@ def build_pack_manifests(meta: Mapping[str, Any], rp_dir: Path) -> None:
         ],
     }
 
-    (rp_dir / "manifest.json").write_text(json.dumps(rp_manifest, indent=2))
+    (rp_dir / "manifest.json").write_text(json.dumps(rp_manifest))
 
     status_message("completion", "Generated Bedrock manifest scaffolding")

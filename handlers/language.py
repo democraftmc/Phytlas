@@ -29,7 +29,7 @@ def write_language_files(texts_dir: Path, lang_entries: List[Tuple[str, str]]) -
     shutil.copy2(texts_dir / "en_US.lang", texts_dir / "en_GB.lang")
     
     (texts_dir / "languages.json").write_text(
-        json.dumps(["en_US", "en_GB"], indent=2), 
+        json.dumps(["en_US", "en_GB"]), 
         encoding="utf-8"
     )
 

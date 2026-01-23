@@ -54,5 +54,5 @@ def write_geyser_item_mappings(entries: Iterable[Mapping[str, Any]], output_path
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(geyser_json, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(geyser_json), encoding="utf-8")
 
