@@ -169,8 +169,8 @@ def convert_resource_pack(
         block_dir, pack_root, rp_root, blocks_root, custom_blocks_location, terrain_texture_data
     )
 
-    if not converted_item_entries:
-        raise RuntimeError("No convertible custom_model_data overrides were found")
+    if not converted_item_entries and not converted_block_entries:
+        raise RuntimeError("No convertible custom items or blocks were found in the pack.")
     
     sound_files = get_sounds_from_pack(pack_root)
 
@@ -261,6 +261,15 @@ def process_font_overrides(
     converted_entries: dict[str, dict[str, str]] = defaultdict(dict)
     status_message("process", "Walking font override files")
     counter = 0
+
+    if not font_file_path.exists():
+        from utils.fetcher import fetch_minecraft_asset
+        fetch_minecraft_asset(str(font_file_path.relative_to(pack_root)), pack_root)
+
+    if not font_file_path.exists():
+        status_message("info", f"Skipping font overrides: {font_file_path} not found")
+        return
+
     font_file_data = json.loads(font_file_path.read_text(encoding="utf-8"))
     for character in font_file_data.get("providers", []):
         try:
@@ -390,7 +399,12 @@ def process_block_overrides(
                 for p in pack_root.rglob(f"{relative_model}.json"):
                     model_json = p
                     break
-            if model_json is None:
+            
+            if model_json is None or not model_json.exists():
+                from utils.fetcher import fetch_minecraft_asset
+                model_json = fetch_minecraft_asset(model_glob, pack_root)
+
+            if model_json is None or not model_json.exists():
                 status_message("error", f"[Note Block] Block model JSON not found for {target_model}. Target: {model_ref}")
                 continue
 
@@ -583,6 +597,10 @@ def process_single_item_override(
     target_json = pack_root / "assets" / namespace / "models" / f"{relative_model}.json"
     
     if not target_json.exists():
+        from utils.fetcher import fetch_minecraft_asset
+        target_json = fetch_minecraft_asset(f"assets/{namespace}/models/{relative_model}.json", pack_root)
+
+    if not target_json.exists():
         status_message("error", f"[Spruce Planks] Missing referenced model {target_model}")
         return None
 
@@ -661,5 +679,5 @@ if __name__ == "__main__":
             geyser_v2=args.v2,
         )
     except Exception as e:
-        status_message("error", "[Iron Block]" + str(e))
+        status_message("error", "[Iron Block] " + str(e))
         sys.exit(1)

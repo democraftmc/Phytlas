@@ -143,7 +143,11 @@ def parent_to_model_path(parent: str, assets_root: Path) -> Path:
         Path to the parent model JSON file.
     """
     namespace, path = split_namespace(parent, default_namespace="minecraft")
-    return assets_root / "assets" / namespace / "models" / f"{path}.json"
+    parent_path = assets_root / "assets" / namespace / "models" / f"{path}.json"
+    if not parent_path.exists():
+        from utils.fetcher import fetch_minecraft_asset
+        fetch_minecraft_asset(f"assets/{namespace}/models/{path}.json", assets_root)
+    return parent_path
 
 
 def _normalize_parent_name(parent: str) -> str:

@@ -25,6 +25,11 @@ def resolve_texture_files(
         texture_id = resolve_texture_value(value, textures)
         namespace, rel = split_namespace(texture_id)
         path = assets_root / "assets" / namespace / "textures" / f"{rel}.png"
+        
+        if not path.exists():
+            from utils.fetcher import fetch_minecraft_asset
+            fetch_minecraft_asset(f"assets/{namespace}/textures/{rel}.png", assets_root)
+            
         resolved[key] = path
     return resolved
 

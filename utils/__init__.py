@@ -9,6 +9,7 @@ from .file_ops import (
     copy_file_safe,
     consolidate_files,
 )
+from .fetcher import fetch_minecraft_asset
 
 __all__ = [
     "status_message",
@@ -18,4 +19,5 @@ __all__ = [
     "ensure_directory",
     "copy_file_safe",
     "consolidate_files",
+    "fetch_minecraft_asset",
 ]
