@@ -21,7 +21,7 @@ from handlers import (
     write_player_animation,
     write_entity_data,
 )
-from models import write_geyser_item_mappings
+from models import write_geyser_item_mappings, write_geyser_item_mappings_v2
 from blocks import write_geyser_block_mappings
 from fonts import is_bedrock_glyph, generate_bedrock_glyph_font_file
 from services import build_pack_manifests, ensure_placeholder_texture
@@ -37,6 +37,7 @@ def convert_resource_pack(
     *,
     attachable_material: str = "entity_alphablend",
     block_material: str = "alpha_test",
+    geyser_v2: bool = False,
 ) -> Path:
     """
     Convert a Java resource pack zip into Bedrock-ready resource/behavior packs plus Geyser mappings.
@@ -193,7 +194,10 @@ def convert_resource_pack(
 
     # Write Geyser mappings
     mappings_path = output_root / "item_geyser_mappings.json"
-    write_geyser_item_mappings(converted_item_entries, mappings_path)
+    if geyser_v2:
+        write_geyser_item_mappings_v2(converted_item_entries, mappings_path)
+    else:
+        write_geyser_item_mappings(converted_item_entries, mappings_path)
     mappings_path = output_root / "block_geyser_mappings.json"
     write_geyser_block_mappings(converted_block_entries, mappings_path)
 
@@ -519,7 +523,7 @@ def process_model_overrides(
             # Process single override
             entry = process_single_item_override(
                 item_id, cmd, index, target_model, pack_root, 
-                rp_root, textures_root, materials
+                rp_root, textures_root, materials, override, model_data
             )
             
             if entry is None:
@@ -555,6 +559,8 @@ def process_single_item_override(
     rp_root: Path,
     textures_root: Path,
     materials: dict[str, str],
+    override_dict: dict[str, Any] = None,
+    base_model_data: dict[str, Any] = None,
 ) -> Optional[dict[str, Any]]:
     """
     Process a single model override entry.
@@ -604,6 +610,9 @@ def process_single_item_override(
         "geometry": geometry_id,
         "bedrock_icon": {"icon": "camera", "frame": 0},
         "nbt": {"CustomModelData": int(cmd)},
+        "override": override_dict or {},
+        "raw_target_model": resolved.get("raw_model", {}),
+        "base_model_data": base_model_data or {}
     }
 
     try:
@@ -639,6 +648,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", help="Output directory", default="target")
     parser.add_argument("--attachable-material", default="entity_alphablend", help="Material for attachables")
     parser.add_argument("--block-material", default="alpha_test", help="Material for blocks")
+    parser.add_argument("--v2", "--geyser-v2", action="store_true", dest="v2", help="Generate item mappings using Geyser v2 format (item models)")
 
     args = parser.parse_args()
 
@@ -648,6 +658,7 @@ if __name__ == "__main__":
             Path(args.output),
             attachable_material=args.attachable_material,
             block_material=args.block_material,
+            geyser_v2=args.v2,
         )
     except Exception as e:
         status_message("error", "[Iron Block]" + str(e))

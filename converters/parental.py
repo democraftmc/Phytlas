@@ -69,6 +69,7 @@ def resolve_parental(
     resolved_display: Optional[dict[str, Any]] = None
     resolved_textures: MutableMapping[str, str] = {}
     generated_model = False
+    raw_model: Optional[dict[str, Any]] = None
 
     while True:
         if current in visited:
@@ -77,6 +78,9 @@ def resolve_parental(
         visited.add(current)
         parent_chain.append(str(current))
         model = json.loads(current.read_text(encoding="utf-8"))
+        
+        if raw_model is None:
+            raw_model = copy.deepcopy(model)
 
         if resolved_elements is None and "elements" in model:
             resolved_elements = model["elements"]
@@ -123,6 +127,7 @@ def resolve_parental(
         "generated": generated_model,
         "parent_chain": parent_chain,
         "texture_paths": texture_paths,
+        "raw_model": raw_model,
     }
 
 
